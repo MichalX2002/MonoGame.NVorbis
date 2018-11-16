@@ -6,96 +6,94 @@
  *                                                                          *
  ***************************************************************************/
 using System;
+using System.Collections.Generic;
 
 namespace NVorbis
 {
     static class Huffman
     {
         const int MAX_TABLE_BITS = 10;
-
-        static internal System.Collections.Generic.List<HuffmanListNode> BuildPrefixedLinkedList(int[] values, int[] lengthList, int[] codeList, out int tableBits, out HuffmanListNode firstOverflowNode)
+        
+        static internal List<HuffmanListNode> BuildPrefixedLinkedList(
+            int[] values, int[] lengthList, int[] codeList,
+            out int tableBits, out HuffmanListNode firstOverflowNode)
         {
             HuffmanListNode[] list = new HuffmanListNode[lengthList.Length];
 
-            var maxLen = 0;
-            for (int i = 0; i < list.Length; i++)
+            int maxLen = 0;
+            for (int i = 0; i < lengthList.Length; i++)
             {
-                list[i] = new HuffmanListNode
-                {
-                    Value = values[i],
-                    Length = lengthList[i] <= 0 ? 99999 : lengthList[i],
-                    Bits = codeList[i],
-                    Mask = (1 << lengthList[i]) - 1,
-                };
+                int nodeLength = lengthList[i] <= 0 ? 99999 : lengthList[i];
+                int mask = (1 << lengthList[i]) - 1;
+                list[i] = new HuffmanListNode(values[i], nodeLength, codeList[i], mask);
+
                 if (lengthList[i] > 0 && maxLen < lengthList[i])
-                {
                     maxLen = lengthList[i];
-                }
             }
-
-            Array.Sort(list, SortCallback);
-
+        
             tableBits = maxLen > MAX_TABLE_BITS ? MAX_TABLE_BITS : maxLen;
+            var prefixList = new List<HuffmanListNode>(1 << tableBits);
 
-            var prefixList = new System.Collections.Generic.List<HuffmanListNode>(1 << tableBits);
+            Array.Sort(list, 0, lengthList.Length);
             firstOverflowNode = null;
-            for (int i = 0; i < list.Length && list[i].Length < 99999; i++)
+            for (int i = 0; i < lengthList.Length && list[i].Length < 99999; i++)
             {
                 if (firstOverflowNode == null)
                 {
-                    var itemBits = list[i].Length;
+                    int itemBits = list[i].Length;
                     if (itemBits > tableBits)
                     {
                         firstOverflowNode = list[i];
                     }
                     else
                     {
-                        var maxVal = 1 << (tableBits - itemBits);
-                        var item = list[i];
+                        int maxVal = 1 << (tableBits - itemBits);
+                        HuffmanListNode item = list[i];
                         for (int j = 0; j < maxVal; j++)
                         {
-                            var idx = (j << itemBits) | item.Bits;
+                            int idx = (j << itemBits) | item.Bits;
                             while (prefixList.Count <= idx)
-                            {
                                 prefixList.Add(null);
-                            }
+
                             prefixList[idx] = item;
                         }
                     }
                 }
                 else
-                {
                     list[i - 1].Next = list[i];
-                }
             }
 
             while (prefixList.Count < 1 << tableBits)
-            {
                 prefixList.Add(null);
-            }
 
             return prefixList;
         }
-
-        static int SortCallback(HuffmanListNode i1, HuffmanListNode i2)
-        {
-            var len = i1.Length - i2.Length;
-            if (len == 0)
-            {
-                return i1.Bits - i2.Bits;
-            }
-            return len;
-        }
     }
 
-    class HuffmanListNode
+    internal class HuffmanListNode : IComparable<HuffmanListNode>
     {
-        internal int Value;
+        public int Value;
+        public int Length;
+        public int Bits;
+        public int Mask;
 
-        internal int Length;
-        internal int Bits;
-        internal int Mask;
+        public HuffmanListNode Next;
 
-        internal HuffmanListNode Next;
+        public HuffmanListNode(int value, int length, int bits, int mask)
+        {
+            Value = value;
+            Length = length;
+            Bits = bits;
+            Mask = mask;
+        }
+
+        public int CompareTo(HuffmanListNode other)
+        {
+            int len = Length - other.Length;
+            if (len == 0)
+                return Bits - other.Bits;
+
+            return len;
+        }
     }
 }

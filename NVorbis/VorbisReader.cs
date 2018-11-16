@@ -15,8 +15,6 @@ namespace NVorbis
 {
     public class VorbisReader : IDisposable
     {
-        int _streamIdx;
-
         IContainerReader _containerReader;
         List<VorbisStreamDecoder> _decoders;
         List<int> _serials;
@@ -27,7 +25,6 @@ namespace NVorbis
 
             _decoders = new List<VorbisStreamDecoder>();
             _serials = new List<int>();
-
         }
 
         public VorbisReader(string fileName)
@@ -35,8 +32,7 @@ namespace NVorbis
         {
         }
 
-        public VorbisReader(Stream stream, bool closeStreamOnDispose)
-            : this()
+        public VorbisReader(Stream stream, bool closeStreamOnDispose) : this()
         {
             var bufferedStream = new BufferedReadStream(stream);
             bufferedStream.CloseBaseStream = closeStreamOnDispose;
@@ -56,24 +52,22 @@ namespace NVorbis
             if (_decoders.Count == 0) throw new InvalidDataException("No Vorbis data found!");
         }
 
-        public VorbisReader(IContainerReader containerReader)
-            : this()
+        public VorbisReader(IContainerReader containerReader) : this()
         {
             if (!LoadContainer(containerReader))
-            {
                 throw new InvalidDataException("Container did not initialize!");
-            }
+
             _containerReader = containerReader;
 
             if (_decoders.Count == 0) throw new InvalidDataException("No Vorbis data found!");
         }
 
-        public VorbisReader(IPacketProvider packetProvider)
-            : this()
+        public VorbisReader(IPacketProvider packetProvider) : this()
         {
             var ea = new NewStreamEventArgs(packetProvider);
             NewStream(this, ea);
-            if (ea.IgnoreStream) throw new InvalidDataException("No Vorbis data found!");
+            if (ea.IgnoreStream)
+                throw new InvalidDataException("No Vorbis data found!");
         }
 
         bool LoadContainer(IContainerReader containerReader)
@@ -108,9 +102,8 @@ namespace NVorbis
             if (_decoders != null)
             {
                 foreach (var decoder in _decoders)
-                {
                     decoder.Dispose();
-                }
+
                 _decoders.Clear();
                 _decoders = null;
             }
@@ -127,8 +120,9 @@ namespace NVorbis
         {
             get
             {
-                if (_decoders == null) throw new ObjectDisposedException("VorbisReader");
-                return _decoders[_streamIdx];
+                if (_decoders == null)
+                    throw new ObjectDisposedException(nameof(VorbisReader));
+                return _decoders[StreamIndex];
             }
         }
 
@@ -187,18 +181,15 @@ namespace NVorbis
         /// <summary>
         /// Gets stats from each decoder stream available
         /// </summary>
-        public IVorbisStreamStatus[] Stats
+        public IEnumerable<IVorbisStreamStatus> Stats
         {
-            get { return _decoders.Select(d => d).Cast<IVorbisStreamStatus>().ToArray(); }
+            get { return _decoders.Select(d => d).Cast<IVorbisStreamStatus>(); }
         }
 
         /// <summary>
         /// Gets the currently-selected stream's index
         /// </summary>
-        public int StreamIndex
-        {
-            get { return _streamIdx; }
-        }
+        public int StreamIndex { get; private set; }
 
         /// <summary>
         /// Reads decoded samples from the current logical stream
@@ -209,14 +200,16 @@ namespace NVorbis
         /// <returns>The number of samples written</returns>
         public int ReadSamples(float[] buffer, int offset, int count)
         {
-            if (offset < 0) throw new ArgumentOutOfRangeException("offset");
-            if (count < 0 || offset + count > buffer.Length) throw new ArgumentOutOfRangeException("count");
+            if (offset < 0)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            if (count < 0 || offset + count > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(count));
 
             count = ActiveDecoder.ReadSamples(buffer, offset, count);
 
             if (ClipSamples)
             {
-                var decoder = _decoders[_streamIdx];
+                var decoder = _decoders[StreamIndex];
                 for (int i = 0; i < count; i++, offset++)
                 {
                     buffer[offset] = Utils.ClipValue(buffer[offset], ref decoder._clipped);
@@ -248,7 +241,8 @@ namespace NVorbis
         /// <returns><c>True</c> if a new stream was found, otherwise <c>false</c>.</returns>
         public bool FindNextStream()
         {
-            if (_containerReader == null) return false;
+            if (_containerReader == null)
+                return false;
             return _containerReader.FindNextStream();
         }
 
@@ -259,17 +253,21 @@ namespace NVorbis
         /// <returns><c>True</c> if the properties of the logical stream differ from those of the one previously being decoded. Otherwise, <c>False</c>.</returns>
         public bool SwitchStreams(int index)
         {
-            if (index < 0 || index >= StreamCount) throw new ArgumentOutOfRangeException("index");
+            if (index < 0 || index >= StreamCount)
+                throw new ArgumentOutOfRangeException(nameof(index));
 
-            if (_decoders == null) throw new ObjectDisposedException("VorbisReader");
+            if (_decoders == null)
+                throw new ObjectDisposedException(nameof(VorbisReader));
 
-            if (_streamIdx == index) return false;
+            if (StreamIndex == index)
+                return false;
 
-            var curDecoder = _decoders[_streamIdx];
-            _streamIdx = index;
-            var newDecoder = _decoders[_streamIdx];
+            var curDecoder = _decoders[StreamIndex];
+            StreamIndex = index;
+            var newDecoder = _decoders[StreamIndex];
 
-            return curDecoder._channels != newDecoder._channels || curDecoder._sampleRate != newDecoder._sampleRate;
+            return curDecoder._channels != newDecoder._channels 
+                || curDecoder._sampleRate != newDecoder._sampleRate;
         }
 
         /// <summary>

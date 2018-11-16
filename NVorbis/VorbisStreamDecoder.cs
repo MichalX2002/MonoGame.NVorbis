@@ -245,25 +245,23 @@ namespace NVorbis
             return true;
         }
 
+        private static readonly byte[] packetHeader = new byte[] { 0x05, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 };
+
         bool LoadBooks(DataPacket packet)
         {
-            if (!packet.ReadBytes(7).SequenceEqual(new byte[] { 0x05, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 }))
-            {
+            if (!packet.ReadBytes(7).SequenceEqual(packetHeader))
                 return false;
-            }
 
-            if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber))) _pagesSeen.Add(_lastPageSeen);
+            if (!_pagesSeen.Contains(_lastPageSeen = packet.PageSequenceNumber))
+                _pagesSeen.Add(_lastPageSeen);
 
             var bits = packet.BitsRead;
-
             _glueBits += packet.BitsRead;
 
             // get books
             Books = new VorbisCodebook[packet.ReadByte() + 1];
             for (int i = 0; i < Books.Length; i++)
-            {
                 Books[i] = VorbisCodebook.Init(this, packet, i);
-            }
 
             _bookBits += packet.BitsRead - bits;
             bits = packet.BitsRead;
@@ -743,9 +741,8 @@ namespace NVorbis
             catch
             {
                 if (packet != null)
-                {
                     packet.Done();
-                }
+
                 throw;
             }
             finally

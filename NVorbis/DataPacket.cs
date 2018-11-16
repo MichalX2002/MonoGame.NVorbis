@@ -358,10 +358,10 @@ namespace NVorbis
         public ulong ReadBits(int count)
         {
             // short-circuit 0
-            if (count == 0) return 0UL;
+            if (count == 0)
+                return 0UL;
 
-            int temp;
-            var value = TryPeekBits(count, out temp);
+            var value = TryPeekBits(count, out int temp);
 
             SkipBits(count);
 
@@ -374,8 +374,7 @@ namespace NVorbis
         /// <returns>The byte read from the packet.</returns>
         public byte PeekByte()
         {
-            int temp;
-            return (byte)TryPeekBits(8, out temp);
+            return (byte)TryPeekBits(8, out int temp);
         }
 
         /// <summary>
@@ -417,8 +416,7 @@ namespace NVorbis
             if (index < 0 || index + count > buffer.Length) throw new ArgumentOutOfRangeException("index");
             for (int i = 0; i < count; i++)
             {
-                int cnt;
-                byte val = (byte)TryPeekBits(8, out cnt);
+                byte val = (byte)TryPeekBits(8, out int cnt);
                 if (cnt == 0)
                 {
                     return i;
