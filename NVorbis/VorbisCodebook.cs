@@ -26,14 +26,8 @@ namespace NVorbis
         int PrefixBitLength;
         int MaxBits;
 
-        internal float this[int entry, int dim]
-        {
-            get
-            {
-                return LookupTable[entry * Dimensions + dim];
-            }
-        }
-
+        internal float this[int entry, int dim] => LookupTable[entry * Dimensions + dim];
+            
         internal static VorbisCodebook Init(VorbisStreamDecoder vorbis, DataPacket packet, int number)
         {
             var temp = new VorbisCodebook(number);
@@ -49,7 +43,7 @@ namespace NVorbis
         internal void Init(DataPacket packet)
         {
             // first, check the sync pattern
-            var chkVal = packet.ReadBits(24);
+            ulong chkVal = packet.ReadBits(24);
             if (chkVal != 0x564342UL)
                 throw new InvalidDataException();
 
@@ -176,9 +170,7 @@ namespace NVorbis
                 if (z != lengths[i])
                 {
                     for (y = lengths[i]; y > z; --y)
-                    {
                         available[y] = res + (1U << (32 - y));
-                    }
                 }
             }
 
@@ -194,9 +186,7 @@ namespace NVorbis
                 values[count] = symbol;
             }
             else
-            {
                 codewords[symbol] = (int)huffCode;
-            }
         }
 
         void InitLookupTable(DataPacket packet)
@@ -217,9 +207,7 @@ namespace NVorbis
 
             uint[] multiplicands = new uint[lookupValueCount];
             for (var i = 0; i < lookupValueCount; i++)
-            {
                 multiplicands[i] = (uint)packet.ReadBits(valueBits);
-            }
 
             // now that we have the initial data read in, calculate the entry tree
             if (MapType == 1)
@@ -234,7 +222,8 @@ namespace NVorbis
                         double value = multiplicands[moff] * deltaValue + minValue + last;
                         lookupTable[idx * Dimensions + i] = (float)value;
 
-                        if (sequence_p) last = value;
+                        if (sequence_p)
+                            last = value;
 
                         idxDiv *= lookupValueCount;
                     }
@@ -279,7 +268,7 @@ namespace NVorbis
                 return -1;
 
             // try to get the value from the prefix list...
-            var node = PrefixList[bits];
+            HuffmanListNode node = PrefixList[bits];
             if (node != null)
             {
                 packet.SkipBits(node.Length);

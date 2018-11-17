@@ -27,8 +27,8 @@ namespace NVorbis
             _serials = new List<int>();
         }
 
-        public VorbisReader(string fileName)
-            : this(File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read), true)
+        public VorbisReader(string fileName) :
+            this(File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read), true)
         {
         }
 
@@ -49,7 +49,8 @@ namespace NVorbis
             }
             _containerReader = oggContainer;
 
-            if (_decoders.Count == 0) throw new InvalidDataException("No Vorbis data found!");
+            if (_decoders.Count == 0)
+                throw new InvalidDataException("No Vorbis data found!");
         }
 
         public VorbisReader(IContainerReader containerReader) : this()
@@ -59,7 +60,8 @@ namespace NVorbis
 
             _containerReader = containerReader;
 
-            if (_decoders.Count == 0) throw new InvalidDataException("No Vorbis data found!");
+            if (_decoders.Count == 0)
+                throw new InvalidDataException("No Vorbis data found!");
         }
 
         public VorbisReader(IPacketProvider packetProvider) : this()
@@ -181,10 +183,7 @@ namespace NVorbis
         /// <summary>
         /// Gets stats from each decoder stream available
         /// </summary>
-        public IEnumerable<IVorbisStreamStatus> Stats
-        {
-            get { return _decoders.Select(d => d).Cast<IVorbisStreamStatus>(); }
-        }
+        public IEnumerable<IVorbisStreamStatus> Stats => _decoders.Select(d => d).Cast<IVorbisStreamStatus>();
 
         /// <summary>
         /// Gets the currently-selected stream's index
@@ -209,11 +208,9 @@ namespace NVorbis
 
             if (ClipSamples)
             {
-                var decoder = _decoders[StreamIndex];
+                VorbisStreamDecoder decoder = _decoders[StreamIndex];
                 for (int i = 0; i < count; i++, offset++)
-                {
                     buffer[offset] = Utils.ClipValue(buffer[offset], ref decoder._clipped);
-                }
             }
 
             return count;
@@ -230,10 +227,7 @@ namespace NVorbis
         /// <summary>
         /// Returns the number of logical streams found so far in the physical container
         /// </summary>
-        public int StreamCount
-        {
-            get { return _decoders.Count; }
-        }
+        public int StreamCount => _decoders.Count;
 
         /// <summary>
         /// Searches for the next stream in a concatenated file
@@ -275,14 +269,8 @@ namespace NVorbis
         /// </summary>
         public TimeSpan DecodedTime
         {
-            get
-            {
-                return TimeSpan.FromSeconds((double)ActiveDecoder.CurrentPosition / SampleRate);
-            }
-            set
-            {
-                ActiveDecoder.SeekTo((long)(value.TotalSeconds * SampleRate));
-            }
+            get => TimeSpan.FromSeconds((double)ActiveDecoder.CurrentPosition / SampleRate);
+            set => ActiveDecoder.SeekTo((long)(value.TotalSeconds * SampleRate));
 
         }
 
@@ -291,14 +279,8 @@ namespace NVorbis
         /// </summary>
         public long DecodedPosition
         {
-            get 
-            {
-                return ActiveDecoder.CurrentPosition;
-            }
-            set
-            {
-                ActiveDecoder.SeekTo(value);
-            }
+            get => ActiveDecoder.CurrentPosition;
+            set => ActiveDecoder.SeekTo(value);
         }
 
         /// <summary>
@@ -308,15 +290,11 @@ namespace NVorbis
         {
             get
             {
-                var decoder = ActiveDecoder;
+                VorbisStreamDecoder decoder = ActiveDecoder;
                 if (decoder.CanSeek)
-                {
                     return TimeSpan.FromSeconds((double)decoder.GetLastGranulePos() / decoder._sampleRate);
-                }
                 else
-                {
                     return TimeSpan.MaxValue;
-                }
             }
         }
 
@@ -324,15 +302,11 @@ namespace NVorbis
         {
             get
             {
-                var decoder = ActiveDecoder;
+                VorbisStreamDecoder decoder = ActiveDecoder;
                 if (decoder.CanSeek)
-                {
                     return decoder.GetLastGranulePos();
-                }
                 else
-                {
                     return long.MaxValue;
-                }
             }
         }
         

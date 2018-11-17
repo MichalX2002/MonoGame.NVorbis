@@ -43,12 +43,17 @@ namespace NVorbis
 
         public BufferedReadStream(Stream baseStream, int initialSize, int maxBufferSize, bool minimalRead)
         {
-            if (baseStream == null) throw new ArgumentNullException("baseStream");
-            if (!baseStream.CanRead) throw new ArgumentException("baseStream");
+            if (baseStream == null)
+                throw new ArgumentNullException(nameof(baseStream));
+            if (!baseStream.CanRead)
+                throw new ArgumentException(nameof(baseStream), "Stream is not readable.");
 
-            if (maxBufferSize < 1) maxBufferSize = 1;
-            if (initialSize < 1) initialSize = 1;
-            if (initialSize > maxBufferSize) initialSize = maxBufferSize;
+            if (maxBufferSize < 1)
+                maxBufferSize = 1;
+            if (initialSize < 1)
+                initialSize = 1;
+            if (initialSize > maxBufferSize)
+                initialSize = maxBufferSize;
 
             _baseStream = baseStream;
             _buffer = new StreamReadBuffer(baseStream, initialSize, maxBufferSize, minimalRead);
@@ -68,9 +73,7 @@ namespace NVorbis
                 }
 
                 if (CloseBaseStream)
-                {
-                    _baseStream.Close();
-                }
+                    _baseStream.Dispose();
             }
         }
 
@@ -87,36 +90,29 @@ namespace NVorbis
         void CheckLock()
         {
             if (_owningThread != System.Threading.Thread.CurrentThread)
-            {
                 throw new System.Threading.SynchronizationLockException();
-            }
         }
 
         public void ReleaseLock()
         {
             CheckLock();
             if (--_lockCount == 0)
-            {
                 _owningThread = null;
-            }
+
             System.Threading.Monitor.Exit(_localLock);
         }
 
-        public bool CloseBaseStream
-        {
-            get;
-            set;
-        }
+        public bool CloseBaseStream { get; set; }
 
         public bool MinimalRead
         {
-            get { return _buffer.MinimalRead; }
-            set { _buffer.MinimalRead = value; }
+            get => _buffer.MinimalRead;
+            set => _buffer.MinimalRead = value;
         }
 
         public int MaxBufferSize
         {
-            get { return _buffer.MaxSize; }
+            get => _buffer.MaxSize;
             set
             {
                 CheckLock();
@@ -124,15 +120,8 @@ namespace NVorbis
             }
         }
 
-        public long BufferBaseOffset
-        {
-            get { return _buffer.BaseOffset; }
-        }
-
-        public int BufferBytesFilled
-        {
-            get { return _buffer.BytesFilled; }
-        }
+        public long BufferBaseOffset => _buffer.BaseOffset;
+        public int BufferBytesFilled => _buffer.BytesFilled;
 
         public void Discard(int bytes)
         {
@@ -146,35 +135,21 @@ namespace NVorbis
             _buffer.DiscardThrough(offset);
         }
 
-        public override bool CanRead
-        {
-            get { return true; }
-        }
-
-        public override bool CanSeek
-        {
-            get { return true; }
-        }
-
-        public override bool CanWrite
-        {
-            get { return false; }
-        }
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
 
         public override void Flush()
         {
             // no-op
         }
 
-        public override long Length
-        {
-            get { return _baseStream.Length; }
-        }
+        public override long Length => _baseStream.Length;
 
         public override long Position
         {
-            get { return _readPosition; }
-            set { Seek(value, SeekOrigin.Begin); }
+            get => _readPosition;
+            set => Seek(value, SeekOrigin.Begin);
         }
 
         public override int ReadByte()
@@ -182,16 +157,15 @@ namespace NVorbis
             CheckLock();
             var val = _buffer.ReadByte(Position);
             if (val > -1)
-            {
                 Seek(1, SeekOrigin.Current);
-            }
+
             return val;
         }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
             CheckLock();
-            var cnt = _buffer.Read(Position, buffer, offset, count);
+            int cnt = _buffer.Read(Position, buffer, offset, count);
             Seek(cnt, SeekOrigin.Current);
             return cnt;
         }
@@ -214,8 +188,10 @@ namespace NVorbis
 
             if (!_baseStream.CanSeek)
             {
-                if (offset < _buffer.BaseOffset) throw new InvalidOperationException("Cannot seek to before the start of the buffer!");
-                if (offset >= _buffer.BufferEndOffset) throw new InvalidOperationException("Cannot seek to beyond the end of the buffer!  Discard some bytes.");
+                if (offset < _buffer.BaseOffset)
+                    throw new InvalidOperationException("Cannot seek to before the start of the buffer.");
+                if (offset >= _buffer.BufferEndOffset)
+                    throw new InvalidOperationException("Cannot seek to beyond the end of the buffer. Discard some bytes.");
             }
 
             return (_readPosition = offset);
