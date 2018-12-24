@@ -8,6 +8,8 @@
 using System;
 using System.Linq;
 using System.IO;
+using System.Collections.Generic;
+using System.Collections;
 
 namespace NVorbis
 {
@@ -130,9 +132,57 @@ namespace NVorbis
                 if (!ComputeCodewords(sparse, sortedEntries, codewords, codewordLengths, Lengths, Entries, values))
                     throw new InvalidDataException();
 
+                IReadOnlyList<int> valueList;
+                if (values != null)
+                    valueList = values;
+                else
+                    valueList = FastRange.Get(0, codewords.Length);
+
                 PrefixList = Huffman.BuildPrefixedLinkedList(
-                    values ?? Enumerable.Range(0, codewords.Length).ToArray(),
-                    codewordLengths ?? Lengths, codewords, out PrefixBitLength, out PrefixOverflowTree);
+                    valueList, codewordLengths ?? Lengths, codewords, out PrefixBitLength, out PrefixOverflowTree);
+            }
+        }
+
+        class FastRange : IReadOnlyList<int>
+        {
+            [ThreadStatic]
+            private static FastRange _cachedRange;
+
+            private int _start;
+
+            public int this[int index]
+            {
+                get
+                {
+                    if (index > Count)
+                        throw new ArgumentOutOfRangeException();
+                    return _start + index;
+                }
+            }
+
+            public int Count { get; private set; }
+
+            private FastRange()
+            {
+            }
+
+            public static FastRange Get(int start, int count)
+            {
+                if(_cachedRange == null)
+                    _cachedRange = new FastRange();
+                _cachedRange._start = start;
+                _cachedRange.Count = count;
+                return _cachedRange;
+            }
+
+            public IEnumerator<int> GetEnumerator()
+            {
+                throw new NotSupportedException();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
             }
         }
 

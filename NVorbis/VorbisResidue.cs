@@ -30,7 +30,7 @@ namespace NVorbis
             return residue;
         }
 
-        static int icount(int v)
+        static int ICount(int v)
         {
             var ret = 0;
             while (v != 0)
@@ -50,23 +50,21 @@ namespace NVorbis
 
             _residue = new float[_vorbis._channels][];
             for (int i = 0; i < _vorbis._channels; i++)
-            {
                 _residue[i] = new float[_vorbis.Block1Size];
-            }
         }
 
         protected float[][] GetResidueBuffer(int channels)
         {
-            var temp = _residue;
+            float[][] temp = _residue;
             if (channels < _vorbis._channels)
             {
                 temp = new float[channels][];
                 Array.Copy(_residue, temp, channels);
             }
+
             for (int i = 0; i < channels; i++)
-            {
                 Array.Clear(temp[i], 0, temp[i].Length);
-            }
+
             return temp;
         }
 
@@ -102,35 +100,34 @@ namespace NVorbis
                 _classBook = _vorbis.Books[(int)packet.ReadBits(8)];
 
                 _cascade = new int[_classifications];
-                var acc = 0;
+                int acc = 0;
                 for (int i = 0; i < _classifications; i++)
                 {
                     var low_bits = (int)packet.ReadBits(3);
                     if (packet.ReadBit())
-                    {
                         _cascade[i] = (int)packet.ReadBits(5) << 3 | low_bits;
-                    }
                     else
-                    {
                         _cascade[i] = low_bits;
-                    }
-                    acc += icount(_cascade[i]);
+
+                    acc += ICount(_cascade[i]);
                 }
 
-                var bookNums = new int[acc];
+                int[] bookNums = new int[acc];
                 for (var i = 0; i < acc; i++)
                 {
                     bookNums[i] = (int)packet.ReadBits(8);
-                    if (_vorbis.Books[bookNums[i]].MapType == 0) throw new InvalidDataException();
+                    if (_vorbis.Books[bookNums[i]].MapType == 0)
+                        throw new InvalidDataException();
                 }
 
-                var entries = _classBook.Entries;
-                var dim = _classBook.Dimensions;
-                var partvals = 1;
+                int entries = _classBook.Entries;
+                int dim = _classBook.Dimensions;
+                int partvals = 1;
                 while (dim > 0)
                 {
                     partvals *= _classifications;
-                    if (partvals > entries) throw new InvalidDataException();
+                    if (partvals > entries)
+                        throw new InvalidDataException();
                     --dim;
                 }
 
@@ -152,9 +149,7 @@ namespace NVorbis
                         for (int k = 0; k < stages; k++)
                         {
                             if ((_cascade[j] & (1 << k)) > 0)
-                            {
                                 _books[j][k] = _vorbis.Books[bookNums[acc++]];
-                            }
                         }
                     }
                 }
@@ -180,14 +175,12 @@ namespace NVorbis
                 _partWordCache = new int[_vorbis._channels][][];
                 var maxPartWords = ((_end - _begin) / _partitionSize + _classBook.Dimensions - 1) / _classBook.Dimensions;
                 for (int ch = 0; ch < _vorbis._channels; ch++)
-                {
                     _partWordCache[ch] = new int[maxPartWords][];
-                }
             }
 
             internal override float[][] Decode(DataPacket packet, bool[] doNotDecode, int channels, int blockSize)
             {
-                var residue = GetResidueBuffer(doNotDecode.Length);
+                float[][] residue = GetResidueBuffer(doNotDecode.Length);
 
                 // this is pretty well stolen directly from libvorbis...  BSD license
                 var end = _end < blockSize / 2 ? _end : blockSize / 2;
@@ -195,13 +188,11 @@ namespace NVorbis
 
                 if (n > 0 && doNotDecode.Contains(false))
                 {
-                    var partVals = n / _partitionSize;
+                    int partVals = n / _partitionSize;
                     
-                    var partWords = (partVals + _classBook.Dimensions - 1) / _classBook.Dimensions;
+                    int partWords = (partVals + _classBook.Dimensions - 1) / _classBook.Dimensions;
                     for (int j = 0; j < channels; j++)
-                    {
                         Array.Clear(_partWordCache[j], 0, partWords);
-                    }
 
                     for (int s = 0; s < _maxStages; s++)
                     {
@@ -224,6 +215,7 @@ namespace NVorbis
                                     }
                                 }
                             }
+
                             for (int k = 0; i < partVals && k < _classBook.Dimensions; k++, i++)
                             {
                                 var offset = _begin + i * _partitionSize;
@@ -255,22 +247,18 @@ namespace NVorbis
 
             virtual protected bool WriteVectors(VorbisCodebook codebook, DataPacket packet, float[][] residue, int channel, int offset, int partitionSize)
             {
-                var res = residue[channel];
-                var step = partitionSize / codebook.Dimensions;
+                float[] res = residue[channel];
+                int step = partitionSize / codebook.Dimensions;
 
                 for (int i = 0; i < step; i++)
                 {
                     if ((_entryCache[i] = codebook.DecodeScalar(packet)) == -1)
-                    {
                         return true;
-                    }
                 }
                 for (int i = 0; i < codebook.Dimensions; i++)
                 {
                     for (int j = 0; j < step; j++, offset++)
-                    {
                         res[offset] += codebook[_entryCache[j], i];
-                    }
                 }
                 return false;
             }
@@ -283,19 +271,16 @@ namespace NVorbis
 
             protected override bool WriteVectors(VorbisCodebook codebook, DataPacket packet, float[][] residue, int channel, int offset, int partitionSize)
             {
-                var res = residue[channel];
+                float[] res = residue[channel];
 
                 for (int i = 0; i < partitionSize; )
                 {
                     var entry = codebook.DecodeScalar(packet);
                     if (entry == -1)
-                    {
                         return true;
-                    }
+
                     for (int j = 0; j < codebook.Dimensions; i++, j++)
-                    {
                         res[offset + i] += codebook[entry, j];
-                    }
                 }
 
                 return false;
@@ -314,22 +299,20 @@ namespace NVorbis
             internal override float[][] Decode(DataPacket packet, bool[] doNotDecode, int channels, int blockSize)
             {
                 _channels = channels;
-
                 return base.Decode(packet, doNotDecode, 1, blockSize * channels);
             }
 
             protected override bool WriteVectors(VorbisCodebook codebook, DataPacket packet, float[][] residue, int channel, int offset, int partitionSize)
             {
-                var chPtr = 0;
+                int chPtr = 0;
 
                 offset /= _channels;
                 for (int c = 0; c < partitionSize; )
                 {
-                    var entry = codebook.DecodeScalar(packet);
+                    int entry = codebook.DecodeScalar(packet);
                     if (entry == -1)
-                    {
                         return true;
-                    }
+
                     for (var d = 0; d < codebook.Dimensions; d++, c++)
                     {
                         residue[chPtr][offset] += codebook[entry, d];

@@ -6,9 +6,6 @@
  *                                                                          *
  ***************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace NVorbis
 {
@@ -18,6 +15,8 @@ namespace NVorbis
         int _start;
         int _end;
         int _bufLen;
+
+        internal int Channels;
 
         internal RingBuffer(int size)
         {
@@ -36,9 +35,8 @@ namespace NVorbis
                 var temp = new float[size];
                 Array.Copy(_buffer, _start, temp, 0, _bufLen - _start);
                 if (_end < _start)
-                {
                     Array.Copy(_buffer, 0, temp, _bufLen - _start, _end);
-                }
+
                 var end = Length;
                 _start = 0;
                 _end = end;
@@ -48,39 +46,38 @@ namespace NVorbis
             }
         }
 
-        internal int Channels;
-
         internal void CopyTo(float[] buffer, int index, int count)
         {
-            if (index < 0 || index + count > buffer.Length) throw new ArgumentOutOfRangeException("index");
+            if (index < 0 || index + count > buffer.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
 
-            var start = _start;
+            int start = _start;
             RemoveItems(count);
 
             // this is used to pull data out of the buffer, so we'll update the start position too...
-            var len = (_end - start + _bufLen) % _bufLen;
-            if (count > len) throw new ArgumentOutOfRangeException("count");
+            int len = (_end - start + _bufLen) % _bufLen;
+            if (count > len)
+                throw new ArgumentOutOfRangeException(nameof(count));
 
-            var cnt = Math.Min(count, _bufLen - start);
+            int cnt = Math.Min(count, _bufLen - start);
             Buffer.BlockCopy(_buffer, start * sizeof(float), buffer, index * sizeof(float), cnt * sizeof(float));
 
             if (cnt < count)
-            {
                 Buffer.BlockCopy(_buffer, 0, buffer, (index + cnt) * sizeof(float), (count - cnt) * sizeof(float));
-            }
         }
 
         internal void RemoveItems(int count)
         {
-            var cnt = (count + _start) % _bufLen;
+            int cnt = (count + _start) % _bufLen;
             if (_end > _start)
             {
-                if (cnt > _end || cnt < _start) throw new ArgumentOutOfRangeException();
+                if (cnt > _end || cnt < _start)
+                    throw new ArgumentOutOfRangeException();
             }
             else
-            {
-                // wrap-around
-                if (cnt < _start && cnt > _end) throw new ArgumentOutOfRangeException();
+            {                 // wrap-around
+                if (cnt < _start && cnt > _end)
+                    throw new ArgumentOutOfRangeException();
             }
 
             _start = cnt;
@@ -95,8 +92,9 @@ namespace NVorbis
         {
             get
             {
-                var temp = _end - _start;
-                if (temp < 0) temp += _bufLen;
+                int temp = _end - _start;
+                if (temp < 0)
+                    temp += _bufLen;
                 return temp;
             }
         }
@@ -104,11 +102,9 @@ namespace NVorbis
         internal void Write(int channel, int index, int start, int switchPoint, int end, float[] pcm, float[] window)
         {
             // this is the index of the first sample to merge
-            var idx = (index + start) * Channels + channel + _start;
+            int idx = (index + start) * Channels + channel + _start;
             while (idx >= _bufLen)
-            {
                 idx -= _bufLen;
-            }
 
             // blech...  gotta fix the first packet's pointers
             if (idx < 0)
@@ -119,30 +115,24 @@ namespace NVorbis
 
             // go through and do the overlap
             for (; idx < _bufLen && start < switchPoint; idx += Channels, ++start)
-            {
                 _buffer[idx] += pcm[start] * window[start];
-            }
+
             if (idx >= _bufLen)
             {
                 idx -= _bufLen;
                 for (; start < switchPoint; idx += Channels, ++start)
-                {
                     _buffer[idx] += pcm[start] * window[start];
-                }
             }
 
             // go through and write the rest
             for (; idx < _bufLen && start < end; idx += Channels, ++start)
-            {
                 _buffer[idx] = pcm[start] * window[start];
-            }
+
             if (idx >= _bufLen)
             {
                 idx -= _bufLen;
                 for (; start < end; idx += Channels, ++start)
-                {
                     _buffer[idx] = pcm[start] * window[start];
-                }
             }
 
             // finally, make sure the buffer end is set correctly

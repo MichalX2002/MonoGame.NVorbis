@@ -7,7 +7,6 @@
  ***************************************************************************/
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
 
 namespace NVorbis.Ogg
@@ -21,8 +20,7 @@ namespace NVorbis.Ogg
 
             public DebugView(PacketReader reader)
             {
-                if (reader == null) throw new ArgumentNullException("reader");
-                _reader = reader;
+                _reader = reader ?? throw new ArgumentNullException();
             }
 
             public ContainerReader Container { get { return _reader._container; } }
@@ -40,14 +38,13 @@ namespace NVorbis.Ogg
 
             Packet _last, _first;
             Packet[] _packetList = new Packet[0];
+
             public Packet[] Packets
             {
                 get
                 {
                     if (_reader._last == _last && _reader._first == _first)
-                    {
                         return _packetList;
-                    }
 
                     _last = _reader._last;
                     _first = _reader._first;

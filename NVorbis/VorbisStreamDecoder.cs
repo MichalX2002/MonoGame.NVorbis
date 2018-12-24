@@ -7,8 +7,8 @@
  ***************************************************************************/
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
+using System.Linq;
 using System.IO;
 
 namespace NVorbis
@@ -54,7 +54,6 @@ namespace NVorbis
         internal long _wasteBits;
 
         internal long _samples;
-
         internal int _packetCount;
 
         internal System.Diagnostics.Stopwatch _sw = new System.Diagnostics.Stopwatch();
@@ -63,13 +62,11 @@ namespace NVorbis
 
         IPacketProvider _packetProvider;
         DataPacket _parameterChangePacket;
+        object _seekLock = new object();
 
         List<int> _pagesSeen;
         int _lastPageSeen;
-
         bool _eosFound;
-
-        object _seekLock = new object();
 
         internal VorbisStreamDecoder(IPacketProvider packetProvider)
         {
@@ -144,57 +141,68 @@ namespace NVorbis
                 wasPeek = true;
                 doFullReset = true;
                 packet = _packetProvider.PeekNextPacket();
-                if (packet == null) throw new InvalidDataException("Couldn't get next packet!");
+                if (packet == null)
+                    throw new InvalidDataException("Couldn't get next packet!");
             }
 
             // try to do a comment header...
             if (LoadComments(packet))
             {
                 if (wasPeek)
-                {
                     _packetProvider.GetNextPacket().Done();
-                }
                 else
-                {
                     packet.Done();
-                }
+
                 wasPeek = true;
                 packet = _packetProvider.PeekNextPacket();
-                if (packet == null) throw new InvalidDataException("Couldn't get next packet!");
+                if (packet == null)
+                    throw new InvalidDataException("Couldn't get next packet!");
             }
 
             // try to do a book header...
             if (LoadBooks(packet))
             {
                 if (wasPeek)
-                {
                     _packetProvider.GetNextPacket().Done();
-                }
                 else
-                {
                     packet.Done();
-                }
             }
 
             ResetDecoder(doFullReset);
         }
+        
+        private static readonly byte[] streamHeader = new byte[] { 0x01, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 };
+
+        private bool CheckForHeader(DataPacket packet, byte[] header)
+        {
+            bool equal = true;
+            for (int i = 0; i < header.Length; i++)
+            {
+                byte value = packet.ReadByte();
+                if (value != header[i])
+                    equal = false;
+            }
+            return equal;
+        }
 
         bool ProcessStreamHeader(DataPacket packet)
         {
-            if (!packet.ReadBytes(7).SequenceEqual(new byte[] { 0x01, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 }))
+            if (!CheckForHeader(packet, streamHeader))
             {
                 // don't mark the packet as done... it might be used elsewhere
                 _glueBits += packet.Length * 8;
                 return false;
             }
 
-            if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber))) _pagesSeen.Add(_lastPageSeen);
+            if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber)))
+                _pagesSeen.Add(_lastPageSeen);
 
             _glueBits += 56;
 
-            var startPos = packet.BitsRead;
+            long startPos = packet.BitsRead;
 
-            if (packet.ReadInt32() != 0) throw new InvalidDataException("Only Vorbis stream version 0 is supported.");
+            if (packet.ReadInt32() != 0)
+                throw new InvalidDataException("Only Vorbis stream version 0 is supported.");
 
             _channels = packet.ReadByte();
             _sampleRate = packet.ReadInt32();
@@ -206,37 +214,35 @@ namespace NVorbis
             Block1Size = 1 << (int)packet.ReadBits(4);
 
             if (_nominalBitrate == 0)
-            {
                 if (_upperBitrate > 0 && _lowerBitrate > 0)
-                {
                     _nominalBitrate = (_upperBitrate + _lowerBitrate) / 2;
-                }
-            }
 
             _metaBits += packet.BitsRead - startPos + 8;
-
             _wasteHdrBits += 8 * packet.Length - packet.BitsRead;
 
             return true;
         }
+        
+        private static readonly byte[] commentHeader = new byte[] { 0x03, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 };
 
         bool LoadComments(DataPacket packet)
         {
-            if (!packet.ReadBytes(7).SequenceEqual(new byte[] { 0x03, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 }))
-            {
+            if (!CheckForHeader(packet, commentHeader))
                 return false;
-            }
 
-            if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber))) _pagesSeen.Add(_lastPageSeen);
+            if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber)))
+                _pagesSeen.Add(_lastPageSeen);
 
             _glueBits += 56;
-
-            _vendor = Encoding.UTF8.GetString(packet.ReadBytes(packet.ReadInt32()));
+            
+            int vendorSize = packet.ReadInt32();
+            _vendor = Encoding.UTF8.GetString(packet.ReadBytes(vendorSize));
 
             _comments = new string[packet.ReadInt32()];
             for (int i = 0; i < _comments.Length; i++)
             {
-                _comments[i] = Encoding.UTF8.GetString(packet.ReadBytes(packet.ReadInt32()));
+                int commentSize = packet.ReadInt32();
+                _comments[i] = Encoding.UTF8.GetString(packet.ReadBytes(commentSize));
             }
 
             _metaBits += packet.BitsRead - 56;
@@ -245,11 +251,11 @@ namespace NVorbis
             return true;
         }
 
-        private static readonly byte[] packetHeader = new byte[] { 0x05, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 };
+        private static readonly byte[] bookHeader = new byte[] { 0x05, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73 };
 
         bool LoadBooks(DataPacket packet)
         {
-            if (!packet.ReadBytes(7).SequenceEqual(packetHeader))
+            if (!CheckForHeader(packet, bookHeader))
                 return false;
 
             if (!_pagesSeen.Contains(_lastPageSeen = packet.PageSequenceNumber))
@@ -461,20 +467,16 @@ namespace NVorbis
                 for (int j = 0; j < _channels; j++)
                 {
                     if (_mode.Mapping.ChannelSubmap[j] != subMap)
-                    {
                         _floorData[j].ForceNoEnergy = true;
-                    }
                 }
 
-                var rTemp = subMap.Residue.Decode(packet, _noExecuteChannel, _channels, _mode.BlockSize);
+                float[][] rTemp = subMap.Residue.Decode(packet, _noExecuteChannel, _channels, _mode.BlockSize);
                 for (int c = 0; c < _channels; c++)
                 {
                     var r = _residue[c];
                     var rt = rTemp[c];
                     for (int i = 0; i < halfBlockSize; i++)
-                    {
                         r[i] += rt[i];
-                    }
                 }
             }
 
@@ -842,7 +844,7 @@ namespace NVorbis
 
         internal bool IsParameterChange
         {
-            get { return _isParameterChange; }
+            get => _isParameterChange;
             set
             {
                 if (value) throw new InvalidOperationException("Only clearing is supported!");
@@ -850,10 +852,7 @@ namespace NVorbis
             }
         }
 
-        internal bool CanSeek
-        {
-            get { return _packetProvider.CanSeek; }
-        }
+        internal bool CanSeek => _packetProvider.CanSeek;
 
         internal void SeekTo(long granulePos)
         {
@@ -892,7 +891,8 @@ namespace NVorbis
                     while (cnt > 0)
                     {
                         var temp = ReadSamples(seekBuffer, 0, cnt);
-                        if (temp == 0) break;   // we're at the end...
+                        if (temp == 0)
+                            break; // we're at the end...
                         cnt -= temp;
                     }
                 }
@@ -901,7 +901,7 @@ namespace NVorbis
 
         internal long CurrentPosition
         {
-            get { return _reportedPosition; }
+            get => _reportedPosition;
             private set
             {
                 _reportedPosition = value;
@@ -919,14 +919,11 @@ namespace NVorbis
             return _packetProvider.GetGranuleCount();
         }
 
-        internal long ContainerBits
-        {
-            get { return _packetProvider.ContainerBits; }
-        }
+        internal long ContainerBits => _packetProvider.ContainerBits;
 
         public void ResetStats()
         {
-            // only reset the stream info...  don't mess with the container, book, and hdr bits...
+            // only reset the stream info... don't mess with the container, book, and hdr bits...
 
             _clipped = false;
             _packetCount = 0;
@@ -943,10 +940,10 @@ namespace NVorbis
         {
             get
             {
-                if (_samples == 0L) return 0;
+                if (_samples == 0L)
+                    return 0;
 
-                var decodedSeconds = (double)(_currentPosition - _preparedLength) / _sampleRate;
-
+                double decodedSeconds = (double)(_currentPosition - _preparedLength) / _sampleRate;
                 return (int)(AudioBits / decodedSeconds);
             }
         }
@@ -955,71 +952,23 @@ namespace NVorbis
         {
             get
             {
-                var samples = _sampleCountHistory.Sum();
+                int samples = _sampleCountHistory.Sum();
                 if (samples > 0)
-                {
                     return (int)((long)_bitsPerPacketHistory.Sum() * _sampleRate / samples);
-                }
                 else
-                {
                     return -1;
-                }
             }
         }
 
-        public TimeSpan PageLatency
-        {
-            get
-            {
-                return TimeSpan.FromTicks(_sw.ElapsedTicks / PagesRead);
-            }
-        }
+        public TimeSpan PageLatency => TimeSpan.FromTicks(_sw.ElapsedTicks / PagesRead);
+        public TimeSpan PacketLatency => TimeSpan.FromTicks(_sw.ElapsedTicks / _packetCount);
+        public TimeSpan SecondLatency => TimeSpan.FromTicks((_sw.ElapsedTicks / _samples) * _sampleRate);
 
-        public TimeSpan PacketLatency
-        {
-            get
-            {
-                return TimeSpan.FromTicks(_sw.ElapsedTicks / _packetCount);
-            }
-        }
+        public long OverheadBits => _glueBits + _metaBits + _timeHdrBits + _wasteHdrBits + _wasteBits + _packetProvider.ContainerBits;
+        public long AudioBits => _bookBits + _floorHdrBits + _resHdrBits + _mapHdrBits + _modeHdrBits + _modeBits + _floorBits + _resBits;
 
-        public TimeSpan SecondLatency
-        {
-            get
-            {
-                return TimeSpan.FromTicks((_sw.ElapsedTicks / _samples) * _sampleRate);
-            }
-        }
-
-        public long OverheadBits
-        {
-            get
-            {
-                return _glueBits + _metaBits + _timeHdrBits + _wasteHdrBits + _wasteBits + _packetProvider.ContainerBits;
-            }
-        }
-
-        public long AudioBits
-        {
-            get
-            {
-                return _bookBits + _floorHdrBits + _resHdrBits + _mapHdrBits + _modeHdrBits + _modeBits + _floorBits + _resBits;
-            }
-        }
-
-        public int PagesRead
-        {
-            get { return _pagesSeen.IndexOf(_lastPageSeen) + 1; }
-        }
-
-        public int TotalPages
-        {
-            get { return _packetProvider.GetTotalPageCount(); }
-        }
-
-        public bool Clipped
-        {
-            get { return _clipped; }
-        }
+        public int PagesRead => _pagesSeen.IndexOf(_lastPageSeen) + 1;
+        public int TotalPages => _packetProvider.GetTotalPageCount();
+        public bool Clipped => _clipped;
     }
 }

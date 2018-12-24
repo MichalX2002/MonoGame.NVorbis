@@ -6,7 +6,6 @@
  *                                                                          *
  ***************************************************************************/
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace NVorbis
@@ -16,8 +15,10 @@ namespace NVorbis
     /// </summary>
     partial class BufferedReadStream : Stream
     {
-        const int DEFAULT_INITIAL_SIZE = 32768; // 32KB  (1/2 full page)
-        const int DEFAULT_MAX_SIZE = 262144;    // 256KB (4 full pages)
+        //const int DEFAULT_INITIAL_SIZE = 32768;   // 32KB  (1/2 full page)
+        //const int DEFAULT_MAX_SIZE = 262144;      // 256KB (4 full pages)
+
+        const int DEFAULT_INITIAL_SIZE = 1024 * 80;
 
         Stream _baseStream;
         StreamReadBuffer _buffer;
@@ -27,24 +28,25 @@ namespace NVorbis
         int _lockCount;
 
         public BufferedReadStream(Stream baseStream)
-            : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_MAX_SIZE, false)
+            : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, false)
         {
         }
 
         public BufferedReadStream(Stream baseStream, bool minimalRead)
-            : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_MAX_SIZE, minimalRead)
+            : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, minimalRead)
         {
         }
 
-        public BufferedReadStream(Stream baseStream, int initialSize, int maxSize)
+        private BufferedReadStream(Stream baseStream, int initialSize, int maxSize)
             : this(baseStream, initialSize, maxSize, false)
         {
         }
 
-        public BufferedReadStream(Stream baseStream, int initialSize, int maxBufferSize, bool minimalRead)
+        private BufferedReadStream(Stream baseStream, int initialSize, int maxBufferSize, bool minimalRead)
         {
             if (baseStream == null)
                 throw new ArgumentNullException(nameof(baseStream));
+
             if (!baseStream.CanRead)
                 throw new ArgumentException(nameof(baseStream), "Stream is not readable.");
 
@@ -56,9 +58,7 @@ namespace NVorbis
                 initialSize = maxBufferSize;
 
             _baseStream = baseStream;
-            _buffer = new StreamReadBuffer(baseStream, initialSize, maxBufferSize, minimalRead);
-            _buffer.MaxSize = maxBufferSize;
-            _buffer.MinimalRead = minimalRead;
+            _buffer = new StreamReadBuffer(baseStream, /*initialSize, maxBufferSize,*/ minimalRead);
         }
 
         protected override void Dispose(bool disposing)
@@ -115,8 +115,8 @@ namespace NVorbis
             get => _buffer.MaxSize;
             set
             {
-                CheckLock();
-                _buffer.MaxSize = value;
+                //CheckLock();
+                //_buffer.MaxSize = value;
             }
         }
 

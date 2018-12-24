@@ -16,7 +16,6 @@ namespace NVorbis
         static Dictionary<Stream, StreamWrapper> _lockObjects = new Dictionary<Stream, StreamWrapper>();
 
         StreamWrapper _wrapper;
-        int _maxSize;
 
         byte[] _data;
         long _baseOffset;
@@ -26,7 +25,7 @@ namespace NVorbis
         long _versionCounter;
         List<SavedBuffer> _savedBuffers;
 
-        public StreamReadBuffer(Stream source, int initialSize, int maxSize, bool minimalRead)
+        public StreamReadBuffer(Stream source, bool minimalRead)
         {
             StreamWrapper wrapper;
             lock(_lockObjects)
@@ -44,17 +43,16 @@ namespace NVorbis
                     wrapper.RefCount++;
             }
 
-            // make sure our initial size is a power of 2 (this makes resizing simpler to understand)
-            initialSize = 2 << (int)Math.Log(initialSize - 1, 2);
-
-            // make sure our max size is a power of 2 (in this case, just so we report a "real" number)
-            maxSize = 1 << (int)Math.Log(maxSize, 2);
+            // // make sure our initial size is a power of 2 (this makes resizing simpler to understand)
+            // initialSize = 2 << (int)Math.Log(initialSize - 1, 2);
+            
+            // // make sure our max size is a power of 2 (in this case, just so we report a "real" number)
+            // maxSize = 1 << (int)Math.Log(maxSize, 2);
 
             _wrapper = wrapper;
-            _data = new byte[initialSize];
-            _maxSize = maxSize;
             MinimalRead = minimalRead;
-
+            _data = BufferPool.Rent();
+            MaxSize = BufferPool.BUFFER_SIZE;
             _savedBuffers = new List<SavedBuffer>();
         }
 
@@ -65,25 +63,30 @@ namespace NVorbis
                 if (--_wrapper.RefCount == 0)
                     _lockObjects.Remove(_wrapper.Source);
             }
+
+            BufferPool.Return(_data);
         }
 
         /// <summary>
         /// Gets or Sets whether to limit reads to the smallest size possible.
         /// </summary>
         public bool MinimalRead { get; set; }
-
+        
         /// <summary>
-        /// Gets or Sets the maximum size of the buffer.  This is not a hard limit.
+        /// Gets or Sets the maximum size of the buffer. This is not a hard limit.
         /// </summary>
         public int MaxSize
         {
-            get => _maxSize;
+            get;
+            /*get => _data.Length;
             set
             {
                 if (value < 1)
                     throw new ArgumentOutOfRangeException(nameof(value), "Must be greater than zero.");
 
-                var newMaxSize = 1 << (int)Math.Ceiling(Math.Log(value, 2));
+                int newMaxSize = 1 << (int)Math.Ceiling(Math.Log(value, 2));
+                if (newMaxSize == _data.Length)
+                    return;
 
                 if (newMaxSize < _end)
                 {
@@ -97,7 +100,7 @@ namespace NVorbis
                     _data = newBuf;
                 }
                 _maxSize = newMaxSize;
-            }
+            }*/
         }
 
         /// <summary>
@@ -122,7 +125,7 @@ namespace NVorbis
                 if (_end - _discardCount > 0)
                 {
                     // this is the base offset + discard bytes + buffer max length (though technically we could go a little further...)
-                    return _baseOffset + _discardCount + _maxSize;
+                    return _baseOffset + _discardCount + MaxSize;
                 }
                 // if there aren't any bytes in the buffer, we can seek wherever we want
                 return _wrapper.Source.Length;
@@ -168,8 +171,7 @@ namespace NVorbis
                 return _data[startIdx];
             return -1;
         }
-
-
+        
         int EnsureAvailable(long offset, ref int count, bool isRecursion)
         {
             // simple... if we're inside the buffer, just return the offset (FAST PATH)
@@ -179,7 +181,7 @@ namespace NVorbis
             // not so simple... we're outside the buffer somehow...
 
             // let's make sure the request makes sense
-            if (count > _maxSize)
+            if (count > MaxSize)
                 throw new InvalidOperationException(
                     "Not enough room in the buffer, increase the maximum size and try again.");
 
@@ -235,7 +237,7 @@ namespace NVorbis
         {
             SaveBuffer();
 
-            _data = new byte[Math.Min(2 << (int)Math.Log(count - 1, 2), _maxSize)];
+            _data = BufferPool.Rent();
             _baseOffset = offset;
         }
 
@@ -257,10 +259,10 @@ namespace NVorbis
             if (offset < _baseOffset)
             {
                 // try to overlap the end...
-                if (offset + _maxSize <= _baseOffset)
+                if (offset + MaxSize <= _baseOffset)
                 {
                     // nope...
-                    if (_baseOffset - (offset + _maxSize) > _maxSize)
+                    if (_baseOffset - (offset + MaxSize) > MaxSize)
                         // it's probably best to cache this buffer for a bit
                         CreateNewBuffer(offset, count);
                     else
@@ -274,17 +276,17 @@ namespace NVorbis
                 {
                     // we have at least some overlap
                     readEnd = (int)(offset - _baseOffset);
-                    EnsureBufferSize(Math.Min((int)(offset + _maxSize - _baseOffset), _end) - readEnd, true, readEnd);
+                    EnsureBufferSize(Math.Min((int)(offset + MaxSize - _baseOffset), _end) - readEnd, true, readEnd);
                     readEnd = (int)(offset - _baseOffset) - readEnd;
                 }
             }
             else
             {
                 // try to overlap the beginning...
-                if (offset >= _baseOffset + _maxSize)
+                if (offset >= _baseOffset + MaxSize)
                 {
                     // nope...
-                    if (offset - (_baseOffset + _maxSize) > _maxSize)
+                    if (offset - (_baseOffset + MaxSize) > MaxSize)
                         CreateNewBuffer(offset, count);
                     else
                         EnsureBufferSize(count, false, 0);
@@ -296,7 +298,7 @@ namespace NVorbis
                 {
                     // we have at least some overlap
                     readEnd = (int)(offset + count - _baseOffset);
-                    int ofs = Math.Max(readEnd - _maxSize, 0);
+                    int ofs = Math.Max(readEnd - MaxSize, 0);
                     EnsureBufferSize(readEnd - ofs, true, ofs);
                     readStart = _end;
                     // re-pull in case EnsureBufferSize had to discard...
@@ -310,14 +312,14 @@ namespace NVorbis
             byte[] newBuf = _data;
             if (reqSize > _data.Length)
             {
-                if (reqSize > _maxSize)
+                if (reqSize > MaxSize)
                 {
-                    if (_wrapper.Source.CanSeek || reqSize - _discardCount <= _maxSize)
+                    if (_wrapper.Source.CanSeek || reqSize - _discardCount <= MaxSize)
                     {
                         // lose some of the earlier data...
-                        var ofs = reqSize - _maxSize;
+                        var ofs = reqSize - MaxSize;
                         copyOffset += ofs;
-                        reqSize = _maxSize;
+                        reqSize = MaxSize;
                     }
                     else
                         throw new InvalidOperationException(

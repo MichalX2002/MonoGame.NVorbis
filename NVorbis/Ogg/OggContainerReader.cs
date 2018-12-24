@@ -23,17 +23,14 @@ namespace NVorbis.Ogg
         long _nextPageOffset;
         int _pageCount;
 
-        byte[] _readBuffer = new byte[65025];   // up to a full page of data (but no more!)
+        byte[] _readBuffer; 
 
         long _containerBits, _wasteBits;
 
         /// <summary>
         /// Gets the list of stream serials found in the container so far.
         /// </summary>
-        public int[] StreamSerials
-        {
-            get { return System.Linq.Enumerable.ToArray<int>(_packetReaders.Keys); }
-        }
+        public int[] StreamSerials => System.Linq.Enumerable.ToArray(_packetReaders.Keys);
 
         /// <summary>
         /// Event raised when a new logical stream is found in the container.
@@ -60,6 +57,7 @@ namespace NVorbis.Ogg
             _disposedStreamSerials = new List<int>();
 
             _stream = (stream as BufferedReadStream) ?? new BufferedReadStream(stream) { CloseBaseStream = closeOnDispose };
+            _readBuffer = BufferPool.Rent();
         }
 
         /// <summary>
@@ -95,6 +93,8 @@ namespace NVorbis.Ogg
             _wasteBits = 0L;
 
             _stream.Dispose();
+
+            BufferPool.Return(_readBuffer);
         }
 
         /// <summary>
@@ -105,11 +105,8 @@ namespace NVorbis.Ogg
         /// <exception cref="ArgumentOutOfRangeException">The specified stream serial was not found.</exception>
         public IPacketProvider GetStream(int streamSerial)
         {
-            PacketReader provider;
-            if (!_packetReaders.TryGetValue(streamSerial, out provider))
-            {
-                throw new ArgumentOutOfRangeException("streamSerial");
-            }
+            if (!_packetReaders.TryGetValue(streamSerial, out PacketReader provider))
+                throw new ArgumentOutOfRangeException();
             return provider;
         }
 
@@ -120,7 +117,8 @@ namespace NVorbis.Ogg
         /// <exception cref="InvalidOperationException"><see cref="CanSeek"/> is <c>False</c>.</exception>
         public bool FindNextStream()
         {
-            if (!CanSeek) throw new InvalidOperationException();
+            if (!CanSeek)
+                throw new InvalidOperationException();
 
             // goes through all the pages until the serial count increases
             var cnt = this._packetReaders.Count;
@@ -131,9 +129,7 @@ namespace NVorbis.Ogg
                 {
                     // acquire & release the lock every pass so we don't block any longer than necessary
                     if (GatherNextPage() == -1)
-                    {
                         break;
-                    }
                 }
                 finally
                 {
@@ -146,10 +142,7 @@ namespace NVorbis.Ogg
         /// <summary>
         /// Gets the number of pages that have been read in the container.
         /// </summary>
-        public int PagesRead
-        {
-            get { return _pageCount; }
-        }
+        public int PagesRead => _pageCount;
 
         /// <summary>
         /// Retrieves the total number of pages in the container.
@@ -158,7 +151,8 @@ namespace NVorbis.Ogg
         /// <exception cref="InvalidOperationException"><see cref="CanSeek"/> is <c>False</c>.</exception>
         public int GetTotalPageCount()
         {
-            if (!CanSeek) throw new InvalidOperationException();
+            if (!CanSeek)
+                throw new InvalidOperationException();
 
             // just read pages until we can't any more...
             while (true)
@@ -168,9 +162,7 @@ namespace NVorbis.Ogg
                 {
                     // acquire & release the lock every pass so we don't block any longer than necessary
                     if (GatherNextPage() == -1)
-                    {
                         break;
-                    }
                 }
                 finally
                 {
@@ -184,18 +176,12 @@ namespace NVorbis.Ogg
         /// <summary>
         /// Gets whether the container supports seeking.
         /// </summary>
-        public bool CanSeek
-        {
-            get { return _stream.CanSeek; }
-        }
+        public bool CanSeek => _stream.CanSeek;
 
         /// <summary>
         /// Gets the number of bits in the container that are not associated with a logical stream.
         /// </summary>
-        public long WasteBits
-        {
-            get { return _wasteBits; }
-        }
+        public long WasteBits => _wasteBits;
 
 
         // private implmentation bits
@@ -218,13 +204,16 @@ namespace NVorbis.Ogg
 
             // header
             // NB: if the stream didn't have an EOS flag, this is the most likely spot for the EOF to be found...
-            if (_stream.Read(_readBuffer, 0, 27) != 27) return null;
+            if (_stream.Read(_readBuffer, 0, 27) != 27)
+                return null;
 
             // capture signature
-            if (_readBuffer[0] != 0x4f || _readBuffer[1] != 0x67 || _readBuffer[2] != 0x67 || _readBuffer[3] != 0x53) return null;
+            if (_readBuffer[0] != 0x4f || _readBuffer[1] != 0x67 || _readBuffer[2] != 0x67 || _readBuffer[3] != 0x53)
+                return null;
 
             // check the stream version
-            if (_readBuffer[4] != 0) return null;
+            if (_readBuffer[4] != 0)
+                return null;
 
             // start populating the header
             var hdr = new PageHeader();
@@ -247,9 +236,8 @@ namespace NVorbis.Ogg
             // start calculating the CRC value for this page
             _crc.Reset();
             for (int i = 0; i < 22; i++)
-            {
                 _crc.Update(_readBuffer[i]);
-            }
+
             _crc.Update(0);
             _crc.Update(0);
             _crc.Update(0);
@@ -258,35 +246,36 @@ namespace NVorbis.Ogg
 
             // figure out the length of the page
             var segCnt = (int)_readBuffer[26];
-            if (_stream.Read(_readBuffer, 0, segCnt) != segCnt) return null;
+            if (_stream.Read(_readBuffer, 0, segCnt) != segCnt)
+                return null;
 
-            var packetSizes = new List<int>(segCnt);
-
-            int size = 0, idx = 0;
+            int[] packetSizes = new int[segCnt];
+            
+            int size = 0;
+            int idx = 0;
             for (int i = 0; i < segCnt; i++)
             {
-                var temp = _readBuffer[i];
-                _crc.Update(temp);
+                var tmp = _readBuffer[i];
+                _crc.Update(tmp);
+                
+                packetSizes[idx] += tmp;
 
-                if (idx == packetSizes.Count) packetSizes.Add(0);
-                packetSizes[idx] += temp;
-                if (temp < 255)
+                if (tmp < 255)
                 {
-                    ++idx;
+                    idx++;
                     hdr.LastPacketContinues = false;
                 }
                 else
-                {
                     hdr.LastPacketContinues = true;
-                }
 
-                size += temp;
+                size += tmp;
             }
-            hdr.PacketSizes = packetSizes.ToArray();
+            hdr.PacketSizes = packetSizes;
             hdr.DataOffset = position + 27 + segCnt;
 
             // now we have to go through every byte in the page
-            if (_stream.Read(_readBuffer, 0, size) != size) return null;
+            if (_stream.Read(_readBuffer, 0, size) != size)
+                return null;
             for (int i = 0; i < size; i++)
             {
                 _crc.Update(_readBuffer[i]);
@@ -326,25 +315,21 @@ namespace NVorbis.Ogg
                             break;
                         }
                         else
-                        {
                             _stream.Seek(-3, SeekOrigin.Current);
-                        }
                     }
                     else if (b == -1)
-                    {
                         return null;
-                    }
+
                     _wasteBits += 8;
-                } while (++cnt < 65536);    // we will only search through 64KB of data to find the next sync marker.  if it can't be found, we have a badly corrupted stream.
-                if (cnt == 65536) return null;
+                } while (++cnt < 65536); // we will only search through 64KB of data to find the next sync marker. if it can't be found, we have a badly corrupted stream.
+                if (cnt == 65536)
+                    return null;
             }
             hdr.IsResync = isResync;
 
             _nextPageOffset = hdr.DataOffset;
             for (int i = 0; i < hdr.PacketSizes.Length; i++)
-            {
                 _nextPageOffset += hdr.PacketSizes[i];
-            }
 
             return hdr;
         }
@@ -352,11 +337,8 @@ namespace NVorbis.Ogg
         bool AddPage(PageHeader hdr)
         {
             // get our packet reader (create one if we have to)
-            PacketReader packetReader;
-            if (!_packetReaders.TryGetValue(hdr.StreamSerial, out packetReader))
-            {
+            if (!_packetReaders.TryGetValue(hdr.StreamSerial, out PacketReader packetReader))
                 packetReader = new PacketReader(this, hdr.StreamSerial);
-            }
 
             // save off the container bits
             packetReader.ContainerBits += _containerBits;
@@ -374,14 +356,14 @@ namespace NVorbis.Ogg
             foreach (var size in hdr.PacketSizes)
             {
                 var packet = new Packet(this, dataOffset, size)
-                    {
-                        PageGranulePosition = hdr.GranulePosition,
-                        IsEndOfStream = isEOS,
-                        PageSequenceNumber = hdr.SequenceNumber,
-                        IsContinued = isContinued,
-                        IsContinuation = isContinuation,
-                        IsResync = isResync,
-                    };
+                {
+                    PageGranulePosition = hdr.GranulePosition,
+                    IsEndOfStream = isEOS,
+                    PageSequenceNumber = hdr.SequenceNumber,
+                    IsContinued = isContinued,
+                    IsContinuation = isContinuation,
+                    IsResync = isResync,
+                };
                 packetReader.AddPacket(packet);
 
                 // update the offset into the stream for each packet
@@ -419,12 +401,11 @@ namespace NVorbis.Ogg
                 // get our next header
                 var hdr = FindNextPageHeader();
                 if (hdr == null)
-                {
                     return -1;
-                }
                 
                 // if it's in a disposed stream, grab the next page instead
-                if (_disposedStreamSerials.Contains(hdr.StreamSerial)) continue;
+                if (_disposedStreamSerials.Contains(hdr.StreamSerial))
+                    continue;
                 
                 // otherwise, add it
                 if (AddPage(hdr))

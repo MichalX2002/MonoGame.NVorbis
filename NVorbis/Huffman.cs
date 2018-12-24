@@ -15,10 +15,10 @@ namespace NVorbis
         const int MAX_TABLE_BITS = 10;
         
         static internal List<HuffmanListNode> BuildPrefixedLinkedList(
-            int[] values, int[] lengthList, int[] codeList,
+            IReadOnlyList<int> values, int[] lengthList, int[] codeList,
             out int tableBits, out HuffmanListNode firstOverflowNode)
         {
-            HuffmanListNode[] list = new HuffmanListNode[lengthList.Length];
+            var list = new HuffmanListNode[lengthList.Length];
 
             int maxLen = 0;
             for (int i = 0; i < lengthList.Length; i++)
@@ -36,6 +36,7 @@ namespace NVorbis
 
             Array.Sort(list, 0, lengthList.Length);
             firstOverflowNode = null;
+
             for (int i = 0; i < lengthList.Length && list[i].Length < 99999; i++)
             {
                 if (firstOverflowNode == null)
@@ -70,7 +71,7 @@ namespace NVorbis
         }
     }
 
-    internal class HuffmanListNode : IComparable<HuffmanListNode>
+    internal class HuffmanListNode //: IComparable<HuffmanListNode>
     {
         public int Value;
         public int Length;
@@ -87,13 +88,13 @@ namespace NVorbis
             Mask = mask;
         }
 
-        public int CompareTo(HuffmanListNode other)
-        {
-            int len = Length - other.Length;
-            if (len == 0)
-                return Bits - other.Bits;
-
-            return len;
-        }
+        //public int CompareTo(HuffmanListNode other)
+        //{
+        //    int len = Length - other.Length;
+        //    if (len == 0)
+        //        return Bits - other.Bits;
+        //
+        //    return len;
+        //}
     }
 }
