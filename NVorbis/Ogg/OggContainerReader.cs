@@ -14,11 +14,11 @@ namespace NVorbis.Ogg
     /// <summary>
     /// Provides an <see cref="IContainerReader"/> implementation for basic Ogg files.
     /// </summary>
-    public class ContainerReader : IContainerReader
+    public class OggContainerReader : IContainerReader
     {
-        Crc _crc = new Crc();
+        OggCrc _crc = new OggCrc();
         BufferedReadStream _stream;
-        Dictionary<int, PacketReader> _packetReaders;
+        Dictionary<int, OggPacketReader> _packetReaders;
         List<int> _disposedStreamSerials;
         long _nextPageOffset;
         int _pageCount;
@@ -41,7 +41,7 @@ namespace NVorbis.Ogg
         /// Creates a new instance with the specified file.
         /// </summary>
         /// <param name="path">The full path to the file.</param>
-        public ContainerReader(string path)
+        public OggContainerReader(string path)
             : this(File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read), true)
         {
         }
@@ -51,9 +51,9 @@ namespace NVorbis.Ogg
         /// </summary>
         /// <param name="stream">The stream to read.</param>
         /// <param name="closeOnDispose"><c>True</c> to close the stream when <see cref="Dispose"/> is called, otherwise <c>False</c>.</param>
-        public ContainerReader(Stream stream, bool closeOnDispose)
+        public OggContainerReader(Stream stream, bool closeOnDispose)
         {
-            _packetReaders = new Dictionary<int, PacketReader>();
+            _packetReaders = new Dictionary<int, OggPacketReader>();
             _disposedStreamSerials = new List<int>();
 
             _stream = (stream as BufferedReadStream) ?? new BufferedReadStream(stream) { CloseBaseStream = closeOnDispose };
@@ -105,7 +105,7 @@ namespace NVorbis.Ogg
         /// <exception cref="ArgumentOutOfRangeException">The specified stream serial was not found.</exception>
         public IPacketProvider GetStream(int streamSerial)
         {
-            if (!_packetReaders.TryGetValue(streamSerial, out PacketReader provider))
+            if (!_packetReaders.TryGetValue(streamSerial, out OggPacketReader provider))
                 throw new ArgumentOutOfRangeException();
             return provider;
         }
@@ -188,7 +188,7 @@ namespace NVorbis.Ogg
         class PageHeader
         {
             public int StreamSerial { get; set; }
-            public PageFlags Flags { get; set; }
+            public OggPageFlags Flags { get; set; }
             public long GranulePosition { get; set; }
             public int SequenceNumber { get; set; }
             public long DataOffset { get; set; }
@@ -219,7 +219,7 @@ namespace NVorbis.Ogg
             var hdr = new PageHeader();
 
             // bit flags
-            hdr.Flags = (PageFlags)_readBuffer[5];
+            hdr.Flags = (OggPageFlags)_readBuffer[5];
 
             // granulePosition
             hdr.GranulePosition = BitConverter.ToInt64(_readBuffer, 6);
@@ -337,33 +337,31 @@ namespace NVorbis.Ogg
         bool AddPage(PageHeader hdr)
         {
             // get our packet reader (create one if we have to)
-            if (!_packetReaders.TryGetValue(hdr.StreamSerial, out PacketReader packetReader))
-                packetReader = new PacketReader(this, hdr.StreamSerial);
+            if (!_packetReaders.TryGetValue(hdr.StreamSerial, out OggPacketReader packetReader))
+                packetReader = new OggPacketReader(this, hdr.StreamSerial);
 
             // save off the container bits
             packetReader.ContainerBits += _containerBits;
             _containerBits = 0;
 
             // get our flags prepped
-            var isContinued = hdr.PacketSizes.Length == 1 && hdr.LastPacketContinues;
-            var isContinuation = (hdr.Flags & PageFlags.ContinuesPacket) == PageFlags.ContinuesPacket;
-            var isEOS = false;
-            var isResync = hdr.IsResync;
+            bool isContinued = hdr.PacketSizes.Length == 1 && hdr.LastPacketContinues;
+            bool isContinuation = (hdr.Flags & OggPageFlags.ContinuesPacket) == OggPageFlags.ContinuesPacket;
+            bool isEOS = false;
+            bool isResync = hdr.IsResync;
 
             // add all the packets, making sure to update flags as needed
-            var dataOffset = hdr.DataOffset;
-            var cnt = hdr.PacketSizes.Length;
+            long dataOffset = hdr.DataOffset;
+            int cnt = hdr.PacketSizes.Length;
             foreach (var size in hdr.PacketSizes)
             {
-                var packet = new Packet(this, dataOffset, size)
-                {
-                    PageGranulePosition = hdr.GranulePosition,
-                    IsEndOfStream = isEOS,
-                    PageSequenceNumber = hdr.SequenceNumber,
-                    IsContinued = isContinued,
-                    IsContinuation = isContinuation,
-                    IsResync = isResync,
-                };
+                var packet = OggPacketPool.Rent(this, dataOffset, size);
+                packet.PageGranulePosition = hdr.GranulePosition;
+                packet.IsEndOfStream = isEOS;
+                packet.PageSequenceNumber = hdr.SequenceNumber;
+                packet.IsContinued = isContinued;
+                packet.IsContinuation = isContinuation;
+                packet.IsResync = isResync;
                 packetReader.AddPacket(packet);
 
                 // update the offset into the stream for each packet
@@ -377,7 +375,7 @@ namespace NVorbis.Ogg
                 if (--cnt == 1)
                 {
                     isContinued = hdr.LastPacketContinues;
-                    isEOS = (hdr.Flags & PageFlags.EndOfStream) == PageFlags.EndOfStream;
+                    isEOS = (hdr.Flags & OggPageFlags.EndOfStream) == OggPageFlags.EndOfStream;
                 }
             }
 
@@ -427,7 +425,7 @@ namespace NVorbis.Ogg
         }
 
         // packet reader bits...
-        internal void DisposePacketReader(PacketReader packetReader)
+        internal void DisposePacketReader(OggPacketReader packetReader)
         {
             _disposedStreamSerials.Add(packetReader.StreamSerial);
             _packetReaders.Remove(packetReader.StreamSerial);

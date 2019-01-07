@@ -38,7 +38,7 @@ namespace NVorbis
             bufferedStream.CloseBaseStream = closeStreamOnDispose;
 
             // try Ogg first
-            var oggContainer = new Ogg.ContainerReader(bufferedStream, closeStreamOnDispose);
+            var oggContainer = new Ogg.OggContainerReader(bufferedStream, closeStreamOnDispose);
             if (!LoadContainer(oggContainer))
             {
                 // oops, not Ogg!
@@ -133,47 +133,47 @@ namespace NVorbis
         /// <summary>
         /// Gets the number of channels in the current selected Vorbis stream
         /// </summary>
-        public int Channels { get { return ActiveDecoder._channels; } }
+        public int Channels => ActiveDecoder._channels;
 
         /// <summary>
         /// Gets the sample rate of the current selected Vorbis stream
         /// </summary>
-        public int SampleRate { get { return ActiveDecoder._sampleRate; } }
+        public int SampleRate => ActiveDecoder._sampleRate;
 
         /// <summary>
         /// Gets the encoder's upper bitrate of the current selected Vorbis stream
         /// </summary>
-        public int UpperBitrate { get { return ActiveDecoder._upperBitrate; } }
+        public int UpperBitrate => ActiveDecoder._upperBitrate;
 
         /// <summary>
         /// Gets the encoder's nominal bitrate of the current selected Vorbis stream
         /// </summary>
-        public int NominalBitrate { get { return ActiveDecoder._nominalBitrate; } }
+        public int NominalBitrate => ActiveDecoder._nominalBitrate;
 
         /// <summary>
         /// Gets the encoder's lower bitrate of the current selected Vorbis stream
         /// </summary>
-        public int LowerBitrate { get { return ActiveDecoder._lowerBitrate; } }
+        public int LowerBitrate => ActiveDecoder._lowerBitrate;
 
         /// <summary>
         /// Gets the encoder's vendor string for the current selected Vorbis stream
         /// </summary>
-        public string Vendor { get { return ActiveDecoder._vendor; } }
+        public string Vendor => ActiveDecoder._vendor;
 
         /// <summary>
         /// Gets the comments in the current selected Vorbis stream
         /// </summary>
-        public string[] Comments { get { return ActiveDecoder._comments; } }
+        public string[] Comments => ActiveDecoder._comments;
 
         /// <summary>
         /// Gets whether the previous short sample count was due to a parameter change in the stream.
         /// </summary>
-        public bool IsParameterChange { get { return ActiveDecoder.IsParameterChange; } }
+        public bool IsParameterChange => ActiveDecoder.IsParameterChange;
 
         /// <summary>
         /// Gets the number of bits read that are related to framing and transport alone
         /// </summary>
-        public long ContainerOverheadBits { get { return ActiveDecoder.ContainerBits; } }
+        public long ContainerOverheadBits => ActiveDecoder.ContainerBits;
 
         /// <summary>
         /// Gets or sets whether to automatically apply clipping to samples returned by <see cref="VorbisReader.ReadSamples"/>.

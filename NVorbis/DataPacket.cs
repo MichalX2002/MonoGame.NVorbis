@@ -81,13 +81,9 @@ namespace NVorbis
         protected void SetFlag(PacketFlags flag, bool value)
         {
             if (value)
-            {
                 _packetFlags |= flag;
-            }
             else
-            {
                 _packetFlags &= ~flag;
-            }
         }
 
         /// <summary>
@@ -96,7 +92,21 @@ namespace NVorbis
         /// <param name="length">The length of the packet.</param>
         protected DataPacket(int length)
         {
-            Length = length;
+            Set(length);
+        }
+
+        protected void Set(int length)
+        {
+            _bitBucket = default;
+            _bitCount = default;
+            _readBits = default;
+            _overflowBits = default;
+            _packetFlags = default;
+            _granulePosition = default;
+            _pageGranulePosition = default;
+            _length = length;
+            _granuleCount = default;
+            _pageSequenceNumber = default;
         }
 
         /// <summary>
@@ -143,7 +153,6 @@ namespace NVorbis
                     _bitCount = 0;
 
                     IsShort = true;
-
                     return value;
                 }
                 _bitBucket = (ulong)(val & 0xFF) << _bitCount | _bitBucket;

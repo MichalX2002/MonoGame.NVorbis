@@ -12,27 +12,26 @@ using System.Text;
 
 namespace NVorbis.Ogg
 {
-    class Crc
+    class OggCrc
     {
         const uint CRC32_POLY = 0x04c11db7;
         static uint[] crcTable = new uint[256];
 
-        static Crc()
+        static OggCrc()
         {
             for (uint i = 0; i < 256; i++)
             {
                 uint s = i << 24;
                 for (int j = 0; j < 8; ++j)
-                {
                     s = (s << 1) ^ (s >= (1U << 31) ? CRC32_POLY : 0);
-                }
+
                 crcTable[i] = s;
             }
         }
 
         uint _crc;
 
-        public Crc()
+        public OggCrc()
         {
             Reset();
         }

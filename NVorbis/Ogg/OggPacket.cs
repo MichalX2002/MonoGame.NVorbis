@@ -9,54 +9,60 @@ using System;
 
 namespace NVorbis.Ogg
 {
-    class Packet : DataPacket
+    class OggPacket : DataPacket
     {
         long _offset;                       // 8
         int _length;                        // 4
         int _curOfs;                        // 4
-        Packet _mergedPacket;               // IntPtr.Size
-        ContainerReader _containerReader;   // IntPtr.Size
+        OggPacket _mergedPacket;               // IntPtr.Size
+        OggContainerReader _containerReader;   // IntPtr.Size
 
-        internal Packet Next { get; set; } // IntPtr.Size
-        internal Packet Prev { get; set; } // IntPtr.Size
+        internal OggPacket Next { get; set; } // IntPtr.Size
+        internal OggPacket Prev { get; set; } // IntPtr.Size
 
         internal bool IsContinued
         {
-            get { return GetFlag(PacketFlags.User1); }
-            set { SetFlag(PacketFlags.User1, value); }
+            get => GetFlag(PacketFlags.User1);
+            set => SetFlag(PacketFlags.User1, value);
         }
 
         internal bool IsContinuation
         {
-            get { return GetFlag(PacketFlags.User2); }
-            set { SetFlag(PacketFlags.User2, value); }
+            get => GetFlag(PacketFlags.User2);
+            set => SetFlag(PacketFlags.User2, value);
         }
 
-        internal Packet(ContainerReader containerReader, long streamOffset, int length)
-            : base(length)
+        internal OggPacket(OggContainerReader containerReader, long streamOffset, int length) : base(length)
         {
+            Set(containerReader, streamOffset, length);
+        }
+
+        internal void Set(OggContainerReader containerReader, long streamOffset, int length)
+        {
+            _mergedPacket = null;
             _containerReader = containerReader;
+
+            Next = null;
+            Prev = null;
 
             _offset = streamOffset;
             _length = length;
             _curOfs = 0;
+
+            Set(length);
         }
 
         internal void MergeWith(NVorbis.DataPacket continuation)
         {
-            if (!(continuation is Packet op))
+            if (!(continuation is OggPacket op))
                 throw new ArgumentException("Incorrect packet type!");
 
             Length += continuation.Length;
 
             if (_mergedPacket == null)
-            {
                 _mergedPacket = op;
-            }
             else
-            {
                 _mergedPacket.MergeWith(continuation);
-            }
 
             // per the spec, a partial packet goes with the next page's granulepos. 
             // we'll go ahead and assign it to the next page as well

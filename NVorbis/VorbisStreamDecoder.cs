@@ -81,9 +81,7 @@ namespace NVorbis
         {
             // try to process the stream header...
             if (!ProcessStreamHeader(_packetProvider.PeekNextPacket()))
-            {
                 return false;
-            }
 
             // seek past the stream header packet
             _packetProvider.GetNextPacket().Done();
@@ -91,17 +89,13 @@ namespace NVorbis
             // load the comments header...
             var packet = _packetProvider.GetNextPacket();
             if (!LoadComments(packet))
-            {
                 throw new InvalidDataException("Comment header was not readable!");
-            }
             packet.Done();
 
             // load the book header...
             packet = _packetProvider.GetNextPacket();
             if (!LoadBooks(packet))
-            {
                 throw new InvalidDataException("Book header was not readable!");
-            }
             packet.Done();
 
             // get the decoding logic bootstrapped
@@ -119,10 +113,16 @@ namespace NVorbis
         {
             if (_packetProvider != null)
             {
-                var temp = _packetProvider;
+                _packetProvider.ParameterChange -= SetParametersChanging;
+                _packetProvider.Dispose();
                 _packetProvider = null;
-                temp.ParameterChange -= SetParametersChanging;
-                temp.Dispose();
+            }
+            
+            if (Books != null)
+            {
+                foreach (var book in Books)
+                    book.Dispose();
+                Books = null;
             }
         }
 
@@ -263,11 +263,11 @@ namespace NVorbis
 
             var bits = packet.BitsRead;
             _glueBits += packet.BitsRead;
-
+            
             // get books
             Books = new VorbisCodebook[packet.ReadByte() + 1];
             for (int i = 0; i < Books.Length; i++)
-                Books[i] = VorbisCodebook.Init(this, packet, i);
+                Books[i] = VorbisCodebook.Create(this, packet, i);
 
             _bookBits += packet.BitsRead - bits;
             bits = packet.BitsRead;
@@ -285,9 +285,7 @@ namespace NVorbis
             // get floor
             Floors = new VorbisFloor[(int)packet.ReadBits(6) + 1];
             for (int i = 0; i < Floors.Length; i++)
-            {
-                Floors[i] = VorbisFloor.Init(this, packet);
-            }
+                Floors[i] = VorbisFloor.Create(this, packet);
 
             _floorHdrBits += packet.BitsRead - bits;
             bits = packet.BitsRead;
@@ -306,7 +304,7 @@ namespace NVorbis
             Maps = new VorbisMapping[(int)packet.ReadBits(6) + 1];
             for (int i = 0; i < Maps.Length; i++)
             {
-                Maps[i] = VorbisMapping.Init(this, packet);
+                Maps[i] = VorbisMapping.Create(this, packet);
             }
 
             _mapHdrBits += packet.BitsRead - bits;

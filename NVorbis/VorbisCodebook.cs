@@ -6,15 +6,17 @@
  *                                                                          *
  ***************************************************************************/
 using System;
-using System.Linq;
 using System.IO;
 using System.Collections.Generic;
 using System.Collections;
+using HuffmanListNode = NVorbis.HuffmanPool.Node;
 
 namespace NVorbis
 {
-    class VorbisCodebook
+    class VorbisCodebook : IDisposable
     {
+        private bool _disposed;
+
         internal int BookNum;
         internal int Dimensions;
         internal int Entries;
@@ -24,22 +26,22 @@ namespace NVorbis
         float[] LookupTable;
 
         HuffmanListNode PrefixOverflowTree;
-        System.Collections.Generic.List<HuffmanListNode> PrefixList;
+        public HuffmanListNode[] PrefixList;
         int PrefixBitLength;
         int MaxBits;
 
         internal float this[int entry, int dim] => LookupTable[entry * Dimensions + dim];
-            
-        internal static VorbisCodebook Init(VorbisStreamDecoder vorbis, DataPacket packet, int number)
-        {
-            var temp = new VorbisCodebook(number);
-            temp.Init(packet);
-            return temp;
-        }
 
         private VorbisCodebook(int bookNum)
         {
             BookNum = bookNum;
+        }
+
+        internal static VorbisCodebook Create(VorbisStreamDecoder vorbis, DataPacket packet, int number)
+        {
+            var tmp = new VorbisCodebook(number);
+            tmp.Init(packet);
+            return tmp;
         }
 
         internal void Init(DataPacket packet)
@@ -99,6 +101,7 @@ namespace NVorbis
                     }
                 }
             }
+
             // figure out the maximum bit size; if all are unused, don't do anything else
             if ((MaxBits = Lengths.Max()) > -1)
             {
@@ -137,52 +140,9 @@ namespace NVorbis
                     valueList = values;
                 else
                     valueList = FastRange.Get(0, codewords.Length);
-
+                
                 PrefixList = Huffman.BuildPrefixedLinkedList(
                     valueList, codewordLengths ?? Lengths, codewords, out PrefixBitLength, out PrefixOverflowTree);
-            }
-        }
-
-        class FastRange : IReadOnlyList<int>
-        {
-            [ThreadStatic]
-            private static FastRange _cachedRange;
-
-            private int _start;
-
-            public int this[int index]
-            {
-                get
-                {
-                    if (index > Count)
-                        throw new ArgumentOutOfRangeException();
-                    return _start + index;
-                }
-            }
-
-            public int Count { get; private set; }
-
-            private FastRange()
-            {
-            }
-
-            public static FastRange Get(int start, int count)
-            {
-                if(_cachedRange == null)
-                    _cachedRange = new FastRange();
-                _cachedRange._start = start;
-                _cachedRange.Count = count;
-                return _cachedRange;
-            }
-
-            public IEnumerator<int> GetEnumerator()
-            {
-                throw new NotSupportedException();
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
             }
         }
 
@@ -190,8 +150,7 @@ namespace NVorbis
             bool sparse, int sortedEntries, int[] codewords,
             int[] codewordLengths, int[] lengths, int entries, int[] values)
         {
-            int k, m = 0;
-
+            int k;
             for (k = 0; k < entries; ++k)
                 if (lengths[k] > 0)
                     break;
@@ -199,6 +158,7 @@ namespace NVorbis
             if (k == entries)
                 return true;
 
+            int m = 0;
             AddEntry(sparse, codewords, codewordLengths, 0, k, m++, lengths[k], values);
 
             uint[] available = new uint[32];
@@ -207,13 +167,17 @@ namespace NVorbis
 
             for (int i = k + 1; i < entries; ++i)
             {
-                uint res;
                 int z = lengths[i], y;
-                if (z <= 0) continue;
+                if (z <= 0)
+                    continue;
 
-                while (z > 0 && available[z] == 0) --z;
-                if (z == 0) return false;
-                res = available[z];
+                while (z > 0 && available[z] == 0)
+                    --z;
+
+                if (z == 0)
+                    return false;
+
+                uint res = available[z];
                 available[z] = 0;
                 AddEntry(sparse, codewords, codewordLengths, Utils.BitReverse(res), i, m++, lengths[i], values);
 
@@ -251,7 +215,7 @@ namespace NVorbis
             bool sequence_p = packet.ReadBit();
 
             int lookupValueCount = Entries * Dimensions;
-            float[] lookupTable = new float[lookupValueCount];
+            LookupTable = new float[lookupValueCount];
             if (MapType == 1)
                 lookupValueCount = Lookup1_values();
 
@@ -270,7 +234,7 @@ namespace NVorbis
                     {
                         int moff = (idx / idxDiv) % lookupValueCount;
                         double value = multiplicands[moff] * deltaValue + minValue + last;
-                        lookupTable[idx * Dimensions + i] = (float)value;
+                        LookupTable[idx * Dimensions + i] = (float)value;
 
                         if (sequence_p)
                             last = value;
@@ -288,7 +252,7 @@ namespace NVorbis
                     for (var i = 0; i < Dimensions; i++)
                     {
                         double value = multiplicands[moff] * deltaValue + minValue + last;
-                        lookupTable[idx * Dimensions + i] = (float)value;
+                        LookupTable[idx * Dimensions + i] = (float)value;
 
                         if (sequence_p)
                             last = value;
@@ -297,8 +261,6 @@ namespace NVorbis
                     }
                 }
             }
-
-            LookupTable = lookupTable;
         }
 
         int Lookup1_values()
@@ -338,6 +300,78 @@ namespace NVorbis
                 }
             } while ((node = node.Next) != null);
             return -1;
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    HuffmanPool.Return(PrefixOverflowTree);
+                    PrefixOverflowTree = null;
+
+                    for (int i = 0; i < PrefixList.Length; i++)
+                        HuffmanPool.Return(PrefixList[i]);
+                    
+                    Array.Clear(PrefixList, 0, PrefixList.Length);
+                    PrefixList = null;
+
+                    Lengths = null;
+                    LookupTable = null;
+                }
+
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+        
+        class FastRange : IReadOnlyList<int>
+        {
+            [ThreadStatic]
+            private static FastRange _cachedRange;
+
+            private int _start;
+
+            public int this[int index]
+            {
+                get
+                {
+                    if (index > Count)
+                        throw new ArgumentOutOfRangeException();
+                    return _start + index;
+                }
+            }
+
+            public int Count { get; private set; }
+
+            private FastRange()
+            {
+            }
+
+            public static FastRange Get(int start, int count)
+            {
+                if (_cachedRange == null)
+                    _cachedRange = new FastRange();
+
+                _cachedRange._start = start;
+                _cachedRange.Count = count;
+                return _cachedRange;
+            }
+
+            public IEnumerator<int> GetEnumerator()
+            {
+                throw new NotSupportedException();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
         }
     }
 }

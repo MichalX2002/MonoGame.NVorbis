@@ -11,16 +11,20 @@ namespace NVorbis
 {
     abstract class VorbisMapping
     {
-        internal static VorbisMapping Init(VorbisStreamDecoder vorbis, DataPacket packet)
+        internal static VorbisMapping Create(VorbisStreamDecoder vorbis, DataPacket packet)
         {
-            var type = (int)packet.ReadBits(16);
+            int type = (int)packet.ReadBits(16);
 
             VorbisMapping mapping = null;
             switch (type)
             {
-                case 0: mapping = new Mapping0(vorbis); break;
+                case 0:
+                    mapping = new Mapping0(vorbis);
+                    break;
             }
-            if (mapping == null) throw new InvalidDataException();
+
+            if (mapping == null)
+                throw new InvalidDataException();
 
             mapping.Init(packet);
             return mapping;
@@ -36,9 +40,7 @@ namespace NVorbis
         abstract protected void Init(DataPacket packet);
 
         internal Submap[] Submaps;
-
         internal Submap[] ChannelSubmap;
-
         internal CouplingStep[] CouplingSteps;
 
         class Mapping0 : VorbisMapping
@@ -88,9 +90,11 @@ namespace NVorbis
                 {
                     packet.ReadBits(8); // unused placeholder
                     var floorNum = (int)packet.ReadBits(8);
-                    if (floorNum >= _vorbis.Floors.Length) throw new InvalidDataException();
+                    if (floorNum >= _vorbis.Floors.Length)
+                        throw new InvalidDataException();
                     var residueNum = (int)packet.ReadBits(8);
-                    if (residueNum >= _vorbis.Residues.Length) throw new InvalidDataException();
+                    if (residueNum >= _vorbis.Residues.Length)
+                        throw new InvalidDataException();
 
                     Submaps[j] = new Submap
                     {
