@@ -182,7 +182,7 @@ namespace NVorbis
                     offset += Position;
                     break;
                 case SeekOrigin.End:
-                    offset += _baseStream.Length;
+                    offset += Length;
                     break;
             }
 

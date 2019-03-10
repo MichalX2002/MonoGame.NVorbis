@@ -97,16 +97,16 @@ namespace NVorbis
 
         protected void Set(int length)
         {
-            _bitBucket = default;
-            _bitCount = default;
-            _readBits = default;
-            _overflowBits = default;
-            _packetFlags = default;
-            _granulePosition = default;
-            _pageGranulePosition = default;
+            _bitBucket = 0;
+            _bitCount = 0;
+            _readBits = 0;
+            _overflowBits = 0;
+            _packetFlags = 0;
+            _granulePosition = 0;
+            _pageGranulePosition = 0;
             _length = length;
-            _granuleCount = default;
-            _pageSequenceNumber = default;
+            _granuleCount = 0;
+            _pageSequenceNumber = 0;
         }
 
         /// <summary>
