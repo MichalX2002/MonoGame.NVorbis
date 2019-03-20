@@ -32,36 +32,33 @@ namespace NVorbis
         {
         }
 
-        public VorbisReader(Stream stream, bool closeStreamOnDispose) : this()
+        public VorbisReader(Stream stream, bool leaveOpen) : this()
         {
-            var bufferedStream = new BufferedReadStream(stream);
-            bufferedStream.CloseBaseStream = closeStreamOnDispose;
-
             // try Ogg first
-            var oggContainer = new Ogg.OggContainerReader(bufferedStream, closeStreamOnDispose);
+            var oggContainer = new Ogg.OggContainerReader(stream, leaveOpen);
             if (!LoadContainer(oggContainer))
             {
                 // oops, not Ogg!
                 // we don't support any other container types yet, so error out
                 // TODO: Add Matroska fallback
-                bufferedStream.Close();
-                throw new InvalidDataException("Could not determine container type!");
+                oggContainer.Dispose();
+                throw new InvalidDataException("Could not determine container type.");
             }
             _containerReader = oggContainer;
 
             if (_decoders.Count == 0)
-                throw new InvalidDataException("No Vorbis data found!");
+                throw new InvalidDataException("No Vorbis data found.");
         }
 
         public VorbisReader(IContainerReader containerReader) : this()
         {
             if (!LoadContainer(containerReader))
-                throw new InvalidDataException("Container did not initialize!");
+                throw new InvalidDataException("Container did not initialize.");
 
             _containerReader = containerReader;
 
             if (_decoders.Count == 0)
-                throw new InvalidDataException("No Vorbis data found!");
+                throw new InvalidDataException("No Vorbis data found.");
         }
 
         public VorbisReader(IPacketProvider packetProvider) : this()
@@ -69,7 +66,7 @@ namespace NVorbis
             var ea = new NewStreamEventArgs(packetProvider);
             NewStream(this, ea);
             if (ea.IgnoreStream)
-                throw new InvalidDataException("No Vorbis data found!");
+                throw new InvalidDataException("No Vorbis data found.");
         }
 
         bool LoadContainer(IContainerReader containerReader)

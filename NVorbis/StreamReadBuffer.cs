@@ -51,6 +51,7 @@ namespace NVorbis
 
             _wrapper = wrapper;
             MinimalRead = minimalRead;
+
             _data = BufferPool.Rent();
             MaxSize = BufferPool.BUFFER_SIZE;
             _savedBuffers = new List<SavedBuffer>();
@@ -65,6 +66,7 @@ namespace NVorbis
             }
 
             BufferPool.Return(_data);
+            _data = null;
         }
 
         /// <summary>

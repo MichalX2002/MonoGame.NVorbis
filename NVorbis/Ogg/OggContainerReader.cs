@@ -50,13 +50,13 @@ namespace NVorbis.Ogg
         /// Creates a new instance with the specified stream.  Optionally sets to close the stream when disposed.
         /// </summary>
         /// <param name="stream">The stream to read.</param>
-        /// <param name="closeOnDispose"><c>True</c> to close the stream when <see cref="Dispose"/> is called, otherwise <c>False</c>.</param>
-        public OggContainerReader(Stream stream, bool closeOnDispose)
+        /// <param name="leaveOpen"><c>false</c> to close the stream when <see cref="Dispose"/> is called, otherwise <c>true</c>.</param>
+        public OggContainerReader(Stream stream, bool leaveOpen)
         {
             _packetReaders = new Dictionary<int, OggPacketReader>();
             _disposedStreamSerials = new List<int>();
 
-            _stream = (stream as BufferedReadStream) ?? new BufferedReadStream(stream) { CloseBaseStream = closeOnDispose };
+            _stream = new BufferedReadStream(stream, leaveOpen);
             _readBuffer = BufferPool.Rent();
         }
 

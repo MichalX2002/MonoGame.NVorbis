@@ -21,28 +21,30 @@ namespace NVorbis
         const int DEFAULT_INITIAL_SIZE = 1024 * 80;
 
         Stream _baseStream;
+        bool _leaveOpen;
+
         StreamReadBuffer _buffer;
         long _readPosition;
         object _localLock = new object();
         System.Threading.Thread _owningThread;
         int _lockCount;
 
-        public BufferedReadStream(Stream baseStream)
-            : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, false)
+        public BufferedReadStream(Stream baseStream, bool leaveOpen)
+            : this(baseStream, leaveOpen, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, false)
         {
         }
 
-        public BufferedReadStream(Stream baseStream, bool minimalRead)
-            : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, minimalRead)
-        {
-        }
+        //public BufferedReadStream(Stream baseStream, bool minimalRead)
+        //    : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, minimalRead)
+        //{
+        //}
+        //
+        //private BufferedReadStream(Stream baseStream, int initialSize, int maxSize)
+        //    : this(baseStream, initialSize, maxSize, false)
+        //{
+        //}
 
-        private BufferedReadStream(Stream baseStream, int initialSize, int maxSize)
-            : this(baseStream, initialSize, maxSize, false)
-        {
-        }
-
-        private BufferedReadStream(Stream baseStream, int initialSize, int maxBufferSize, bool minimalRead)
+        private BufferedReadStream(Stream baseStream, bool leaveOpen, int initialSize, int maxBufferSize, bool minimalRead)
         {
             if (baseStream == null)
                 throw new ArgumentNullException(nameof(baseStream));
@@ -52,12 +54,15 @@ namespace NVorbis
 
             if (maxBufferSize < 1)
                 maxBufferSize = 1;
+
             if (initialSize < 1)
                 initialSize = 1;
+
             if (initialSize > maxBufferSize)
                 initialSize = maxBufferSize;
 
             _baseStream = baseStream;
+            _leaveOpen = leaveOpen;
             _buffer = new StreamReadBuffer(baseStream, /*initialSize, maxBufferSize,*/ minimalRead);
         }
 
@@ -72,7 +77,7 @@ namespace NVorbis
                     _buffer = null;
                 }
 
-                if (CloseBaseStream)
+                if (!_leaveOpen)
                     _baseStream.Dispose();
             }
         }
@@ -82,9 +87,7 @@ namespace NVorbis
         {
             System.Threading.Monitor.Enter(_localLock);
             if (++_lockCount == 1)
-            {
                 _owningThread = System.Threading.Thread.CurrentThread;
-            }
         }
 
         void CheckLock()
@@ -102,23 +105,21 @@ namespace NVorbis
             System.Threading.Monitor.Exit(_localLock);
         }
 
-        public bool CloseBaseStream { get; set; }
-
         public bool MinimalRead
         {
             get => _buffer.MinimalRead;
             set => _buffer.MinimalRead = value;
         }
 
-        public int MaxBufferSize
-        {
-            get => _buffer.MaxSize;
-            set
-            {
-                //CheckLock();
-                //_buffer.MaxSize = value;
-            }
-        }
+        //public int MaxBufferSize
+        //{
+        //    get => _buffer.MaxSize;
+        //    set
+        //    {
+        //        //CheckLock();
+        //        //_buffer.MaxSize = value;
+        //    }
+        //}
 
         public long BufferBaseOffset => _buffer.BaseOffset;
         public int BufferBytesFilled => _buffer.BytesFilled;
