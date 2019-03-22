@@ -35,7 +35,7 @@ namespace NVorbis.Ogg
         /// <summary>
         /// Event raised when a new logical stream is found in the container.
         /// </summary>
-        public event EventHandler<NewStreamEventArgs> NewStream;
+        public event NewStreamDelegate NewStream;
 
         /// <summary>
         /// Creates a new instance with the specified file.
@@ -185,50 +185,54 @@ namespace NVorbis.Ogg
 
 
         // private implmentation bits
-        class PageHeader
+        unsafe struct PageHeader
         {
-            public int StreamSerial { get; set; }
-            public OggPageFlags Flags { get; set; }
-            public long GranulePosition { get; set; }
-            public int SequenceNumber { get; set; }
-            public long DataOffset { get; set; }
-            public int[] PacketSizes { get; set; }
-            public bool LastPacketContinues { get; set; }
-            public bool IsResync { get; set; }
+            public int StreamSerial;
+            public OggPageFlags Flags;
+            public long GranulePosition;
+            public int SequenceNumber;
+            public long DataOffset;
+            public bool LastPacketContinues;
+            public bool IsResync;
+
+            public fixed int PacketSizes[256];
+            public int SegCount;
         }
 
-        PageHeader ReadPageHeader(long position)
+        unsafe bool ReadPageHeader(long position, out PageHeader header)
         {
+            header = default;
+
             // set the stream's position
             _stream.Seek(position, SeekOrigin.Begin);
 
             // header
             // NB: if the stream didn't have an EOS flag, this is the most likely spot for the EOF to be found...
             if (_stream.Read(_readBuffer, 0, 27) != 27)
-                return null;
+                return false;
 
             // capture signature
             if (_readBuffer[0] != 0x4f || _readBuffer[1] != 0x67 || _readBuffer[2] != 0x67 || _readBuffer[3] != 0x53)
-                return null;
+                return false;
 
             // check the stream version
             if (_readBuffer[4] != 0)
-                return null;
+                return false;
 
             // start populating the header
-            var hdr = new PageHeader();
+            header = new PageHeader();
 
             // bit flags
-            hdr.Flags = (OggPageFlags)_readBuffer[5];
+            header.Flags = (OggPageFlags)_readBuffer[5];
 
             // granulePosition
-            hdr.GranulePosition = BitConverter.ToInt64(_readBuffer, 6);
+            header.GranulePosition = BitConverter.ToInt64(_readBuffer, 6);
 
             // stream serial
-            hdr.StreamSerial = BitConverter.ToInt32(_readBuffer, 14);
+            header.StreamSerial = BitConverter.ToInt32(_readBuffer, 14);
 
             // sequence number
-            hdr.SequenceNumber = BitConverter.ToInt32(_readBuffer, 18);
+            header.SequenceNumber = BitConverter.ToInt32(_readBuffer, 18);
 
             // save off the CRC
             var crc = BitConverter.ToUInt32(_readBuffer, 22);
@@ -245,99 +249,96 @@ namespace NVorbis.Ogg
             _crc.Update(_readBuffer[26]);
 
             // figure out the length of the page
-            var segCnt = (int)_readBuffer[26];
-            if (_stream.Read(_readBuffer, 0, segCnt) != segCnt)
-                return null;
+            header.SegCount = _readBuffer[26];
+            if (_stream.Read(_readBuffer, 0, header.SegCount) != header.SegCount)
+                return false;
 
-            int[] packetSizes = new int[segCnt];
-            
             int size = 0;
             int idx = 0;
-            for (int i = 0; i < segCnt; i++)
+            for (int i = 0; i < header.SegCount; i++)
             {
                 var tmp = _readBuffer[i];
                 _crc.Update(tmp);
                 
-                packetSizes[idx] += tmp;
+                header.PacketSizes[idx] += tmp;
 
                 if (tmp < 255)
                 {
                     idx++;
-                    hdr.LastPacketContinues = false;
+                    header.LastPacketContinues = false;
                 }
                 else
-                    hdr.LastPacketContinues = true;
+                    header.LastPacketContinues = true;
 
                 size += tmp;
             }
-            hdr.PacketSizes = packetSizes;
-            hdr.DataOffset = position + 27 + segCnt;
+            header.DataOffset = position + 27 + header.SegCount;
 
             // now we have to go through every byte in the page
             if (_stream.Read(_readBuffer, 0, size) != size)
-                return null;
+                return false;
+
             for (int i = 0; i < size; i++)
-            {
                 _crc.Update(_readBuffer[i]);
-            }
 
             if (_crc.Test(crc))
             {
-                _containerBits += 8 * (27 + segCnt);
+                _containerBits += 8 * (27 + header.SegCount);
                 ++_pageCount;
-                return hdr;
+                return true;
             }
-            return null;
+            return false;
         }
 
-        PageHeader FindNextPageHeader()
+        unsafe bool FindNextPageHeader(out PageHeader header)
         {
-            var startPos = _nextPageOffset;
+            long startPos = _nextPageOffset;
+            bool isResync = false;
 
-            var isResync = false;
-            PageHeader hdr;
-            while ((hdr = ReadPageHeader(startPos)) == null)
+            while (!ReadPageHeader(startPos, out header))
             {
                 isResync = true;
                 _wasteBits += 8;
                 _stream.Position = ++startPos;
 
-                var cnt = 0;
+                int count = 0;
                 do
                 {
-                    var b = _stream.ReadByte();
+                    int b = _stream.ReadByte();
                     if (b == 0x4f)
                     {
-                        if (_stream.ReadByte() == 0x67 && _stream.ReadByte() == 0x67 && _stream.ReadByte() == 0x53)
+                        if (_stream.ReadByte() == 0x67 &&
+                            _stream.ReadByte() == 0x67 &&
+                            _stream.ReadByte() == 0x53)
                         {
                             // found it!
-                            startPos += cnt;
+                            startPos += count;
                             break;
                         }
                         else
                             _stream.Seek(-3, SeekOrigin.Current);
                     }
                     else if (b == -1)
-                        return null;
+                        return false;
 
                     _wasteBits += 8;
-                } while (++cnt < 65536); // we will only search through 64KB of data to find the next sync marker. if it can't be found, we have a badly corrupted stream.
-                if (cnt == 65536)
-                    return null;
+                } while (++count < 65536); // we will only search through 64KB of data to find the next sync marker. if it can't be found, we have a badly corrupted stream.
+                if (count == 65536)
+                    return false;
             }
-            hdr.IsResync = isResync;
+            header.IsResync = isResync;
 
-            _nextPageOffset = hdr.DataOffset;
-            for (int i = 0; i < hdr.PacketSizes.Length; i++)
-                _nextPageOffset += hdr.PacketSizes[i];
+            _nextPageOffset = header.DataOffset;
+            for (int i = 0; i < header.SegCount; i++)
+                _nextPageOffset += header.PacketSizes[i];
 
-            return hdr;
+            return true;
         }
 
-        bool AddPage(PageHeader hdr)
+        unsafe bool AddPage(PageHeader hdr)
         {
             // get our packet reader (create one if we have to)
-            if (!_packetReaders.TryGetValue(hdr.StreamSerial, out OggPacketReader packetReader))
+            if (!_packetReaders.TryGetValue(hdr.StreamSerial, out var packetReader))
                 packetReader = new OggPacketReader(this, hdr.StreamSerial);
 
             // save off the container bits
@@ -345,16 +346,17 @@ namespace NVorbis.Ogg
             _containerBits = 0;
 
             // get our flags prepped
-            bool isContinued = hdr.PacketSizes.Length == 1 && hdr.LastPacketContinues;
+            bool isContinued = hdr.SegCount == 1 && hdr.LastPacketContinues;
             bool isContinuation = (hdr.Flags & OggPageFlags.ContinuesPacket) == OggPageFlags.ContinuesPacket;
             bool isEOS = false;
             bool isResync = hdr.IsResync;
 
             // add all the packets, making sure to update flags as needed
             long dataOffset = hdr.DataOffset;
-            int cnt = hdr.PacketSizes.Length;
-            foreach (var size in hdr.PacketSizes)
+            int count = hdr.SegCount;
+            for (int i = 0; i < hdr.SegCount; i++)
             {
+                int size = hdr.PacketSizes[i];
                 var packet = OggPacketPool.Rent(this, dataOffset, size);
                 packet.PageGranulePosition = hdr.GranulePosition;
                 packet.IsEndOfStream = isEOS;
@@ -372,7 +374,7 @@ namespace NVorbis.Ogg
                 isResync = false;
 
                 // only the last packet in a page can be continued or flagged end of stream
-                if (--cnt == 1)
+                if (--count == 1)
                 {
                     isContinued = hdr.LastPacketContinues;
                     isEOS = (hdr.Flags & OggPageFlags.EndOfStream) == OggPageFlags.EndOfStream;
@@ -397,8 +399,7 @@ namespace NVorbis.Ogg
             while (true)
             {
                 // get our next header
-                var hdr = FindNextPageHeader();
-                if (hdr == null)
+                if(!FindNextPageHeader(out var hdr))
                     return -1;
                 
                 // if it's in a disposed stream, grab the next page instead
@@ -411,8 +412,9 @@ namespace NVorbis.Ogg
                     var callback = NewStream;
                     if (callback != null)
                     {
-                        var ea = new NewStreamEventArgs(_packetReaders[hdr.StreamSerial]);
+                        var ea = new NewStreamEvent(_packetReaders[hdr.StreamSerial]);
                         callback(this, ea);
+
                         if (ea.IgnoreStream)
                         {
                             _packetReaders[hdr.StreamSerial].Dispose();

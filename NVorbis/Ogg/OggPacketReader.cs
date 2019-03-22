@@ -16,7 +16,7 @@ namespace NVorbis.Ogg
     {
         // IPacketProvider requires this, but we aren't using it
 #pragma warning disable 67  // disable the "unused" warning
-        public event EventHandler<ParameterChangeEventArgs> ParameterChange;
+        public event ParameterChangeDelegate ParameterChange;
 #pragma warning restore 67
 
         private OggContainerReader _container;

@@ -89,13 +89,13 @@ namespace NVorbis
             // load the comments header...
             var packet = _packetProvider.GetNextPacket();
             if (!LoadComments(packet))
-                throw new InvalidDataException("Comment header was not readable!");
+                throw new InvalidDataException("Comment header was not readable.");
             packet.Done();
 
             // load the book header...
             packet = _packetProvider.GetNextPacket();
             if (!LoadBooks(packet))
-                throw new InvalidDataException("Book header was not readable!");
+                throw new InvalidDataException("Book header was not readable.");
             packet.Done();
 
             // get the decoding logic bootstrapped
@@ -104,7 +104,7 @@ namespace NVorbis
             return true;
         }
 
-        void SetParametersChanging(object sender, ParameterChangeEventArgs e)
+        void SetParametersChanging(IPacketProvider sender, ParameterChangeEvent e)
         {
             _parameterChangePacket = e.FirstPacket;
         }
@@ -359,7 +359,6 @@ namespace NVorbis
             _currentPosition = 0L;
 
             _resyncQueue = new Stack<DataPacket>();
-
             _bitsPerPacketHistory = new Queue<int>();
             _sampleCountHistory = new Queue<int>();
 
@@ -377,9 +376,8 @@ namespace NVorbis
 
             // save off the existing "good" data
             if (_preparedLength > 0)
-            {
                 SaveBuffer();
-            }
+
             if (isFullReset)
             {
                 _noExecuteChannel = new bool[_channels];
@@ -387,12 +385,9 @@ namespace NVorbis
 
                 _residue = new float[_channels][];
                 for (int i = 0; i < _channels; i++)
-                {
                     _residue[i] = new float[Block1Size];
-                }
 
-                _outputBuffer = new RingBuffer(Block1Size * 2 * _channels);
-                _outputBuffer.Channels = _channels;
+                _outputBuffer = new RingBuffer(Block1Size * 2 * _channels, _channels);
             }
             else
             {

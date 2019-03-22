@@ -8,6 +8,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace NVorbis
 {
@@ -26,12 +27,9 @@ namespace NVorbis
         {
             lock (_setupCache)
             {
-                if (!_setupCache.ContainsKey(n))
-                {
-                    _setupCache[n] = new Mdct(n);
-                }
-
-                return _setupCache[n];
+                if (!_setupCache.TryGetValue(n, out var value))
+                    _setupCache[n] = (value = new Mdct(n));
+                return value;
             }
         }
 
@@ -42,7 +40,7 @@ namespace NVorbis
 
         private Mdct(int n)
         {
-            this._n = n;
+            _n = n;
             _n2 = n >> 1;
             _n4 = _n2 >> 1;
             _n8 = _n4 >> 1;
@@ -70,9 +68,7 @@ namespace NVorbis
             // now, calc the bit reverse table
             _bitrev = new ushort[_n8];
             for (int i = 0; i < _n8; ++i)
-            {
                 _bitrev[i] = (ushort)(Utils.BitReverse((uint)i, _ld - 3) << 2);
-            }
         }
 
         #region Buffer Handling
@@ -87,12 +83,9 @@ namespace NVorbis
         {
             lock (_threadLocalBuffers)
             {
-                float[] buf;
-                if (!_threadLocalBuffers.TryGetValue(System.Threading.Thread.CurrentThread.ManagedThreadId, out buf))
-                {
-                    _threadLocalBuffers[System.Threading.Thread.CurrentThread.ManagedThreadId] = (buf = new float[_n2]);
-                }
-                return buf;
+                if (!_threadLocalBuffers.TryGetValue(Thread.CurrentThread.ManagedThreadId, out float[] buffer))
+                    _threadLocalBuffers[Thread.CurrentThread.ManagedThreadId] = (buffer = new float[_n2]);
+                return buffer;
             }
         }
 
@@ -101,17 +94,16 @@ namespace NVorbis
         void CalcReverse(float[] buffer)
         {
             float[] u, v, buf2;
-
             buf2 = GetBuffer();
 
             // copy and reflect spectral data
             // step 0
 
             {
-                var d = _n2 - 2; // buf2
-                var AA = 0;     // A
-                var e = 0;      // buffer
-                var e_stop = _n2;// buffer
+                int d = _n2 - 2;  // buf2
+                int AA = 0;       // A
+                int e = 0;        // buffer
+                int e_stop = _n2; // buffer
                 while (e != e_stop)
                 {
                     buf2[d + 1] = (buffer[e] * _A[AA] - buffer[e + 2] * _A[AA + 1]);
@@ -137,7 +129,6 @@ namespace NVorbis
             v = buf2;
 
             // step 2
-
             {
                 var AA = _n2 - 8;    // A
 
@@ -187,7 +178,7 @@ namespace NVorbis
             step3_inner_r_loop(_n >> 5, u, _n2 - 1 - _n8 * 3, -(_n >> 4), 16);
 
             // iterations 2 ... x
-            var l = 2;
+            int l = 2;
             for (; l < (_ld - 3) >> 1; ++l)
             {
                 var k0 = _n >> (l + 2);

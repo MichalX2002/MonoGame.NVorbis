@@ -15,20 +15,20 @@ namespace NVorbis
         int _start;
         int _end;
         int _bufLen;
+        int _channels;
 
-        internal int Channels;
-
-        internal RingBuffer(int size)
+        internal RingBuffer(int size, int channels)
         {
             _buffer = new float[size];
             _start = _end = 0;
             _bufLen = size;
+            _channels = channels;
         }
 
         internal void EnsureSize(int size)
         {
             // because _end == _start signifies no data, and _end is always 1 more than the data we have, we must make the buffer {channels} entries bigger than requested
-            size += Channels;
+            size += _channels;
 
             if (_bufLen < size)
             {
@@ -102,7 +102,7 @@ namespace NVorbis
         internal void Write(int channel, int index, int start, int switchPoint, int end, float[] pcm, float[] window)
         {
             // this is the index of the first sample to merge
-            int idx = (index + start) * Channels + channel + _start;
+            int idx = (index + start) * _channels + channel + _start;
             while (idx >= _bufLen)
                 idx -= _bufLen;
 
@@ -114,24 +114,24 @@ namespace NVorbis
             }
 
             // go through and do the overlap
-            for (; idx < _bufLen && start < switchPoint; idx += Channels, ++start)
+            for (; idx < _bufLen && start < switchPoint; idx += _channels, ++start)
                 _buffer[idx] += pcm[start] * window[start];
 
             if (idx >= _bufLen)
             {
                 idx -= _bufLen;
-                for (; start < switchPoint; idx += Channels, ++start)
+                for (; start < switchPoint; idx += _channels, ++start)
                     _buffer[idx] += pcm[start] * window[start];
             }
 
             // go through and write the rest
-            for (; idx < _bufLen && start < end; idx += Channels, ++start)
+            for (; idx < _bufLen && start < end; idx += _channels, ++start)
                 _buffer[idx] = pcm[start] * window[start];
 
             if (idx >= _bufLen)
             {
                 idx -= _bufLen;
-                for (; start < end; idx += Channels, ++start)
+                for (; start < end; idx += _channels, ++start)
                     _buffer[idx] = pcm[start] * window[start];
             }
 

@@ -7,7 +7,7 @@
  ***************************************************************************/
 using System;
 using System.Collections.Generic;
-using HuffmanListNode = NVorbis.HuffmanPool.Node;
+using HuffmanNode = NVorbis.HuffmanPool.Node;
 
 namespace NVorbis
 {
@@ -15,11 +15,11 @@ namespace NVorbis
     {
         const int MAX_TABLE_BITS = 10;
         
-        static internal HuffmanListNode[] BuildPrefixedLinkedList(
-            IReadOnlyList<int> values, int[] lengthList, int[] codeList,
-            out int tableBits, out HuffmanListNode firstOverflowNode)
+        static internal HuffmanNode[] BuildPrefixedLinkedList(
+            Span<int> values, Span<int> lengthList, Span<int> codeList,
+            out int tableBits, out HuffmanNode firstOverflowNode)
         {
-            var list = new HuffmanListNode[lengthList.Length];
+            var list = new HuffmanNode[lengthList.Length];
 
             int maxLen = 0;
             for (int i = 0; i < lengthList.Length; i++)
@@ -33,7 +33,7 @@ namespace NVorbis
             }
         
             tableBits = maxLen > MAX_TABLE_BITS ? MAX_TABLE_BITS : maxLen;
-            var prefixList = new HuffmanListNode[1 << tableBits];
+            var prefixList = new HuffmanNode[1 << tableBits];
 
             Array.Sort(list, 0, lengthList.Length);
             firstOverflowNode = null;
@@ -42,7 +42,7 @@ namespace NVorbis
             {
                 if (firstOverflowNode == null)
                 {
-                    HuffmanListNode node = list[i];
+                    HuffmanNode node = list[i];
                     node.IsLinked = true;
                     
                     if (node.Length > tableBits)
@@ -81,7 +81,7 @@ namespace NVorbis
         private static object _mutex = new object();
         private static Stack<Node> _pool = new Stack<Node>();
 
-        public const int MAX_NODES = 1024 * 128;
+        public const int MAX_NODES = 1024 * 32;
 
         public static Node Rent(int value, int length, int bits, int mask)
         {
@@ -94,7 +94,7 @@ namespace NVorbis
                     return item;
                 }
             }
-            return new HuffmanListNode(value, length, bits, mask);
+            return new HuffmanNode(value, length, bits, mask);
         }
 
         public static void Return(Node node)

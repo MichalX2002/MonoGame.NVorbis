@@ -6,12 +6,11 @@
  *                                                                          *
  ***************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace NVorbis
 {
+    public delegate void ParameterChangeDelegate(IPacketProvider sender, ParameterChangeEvent data);
+
     /// <summary>
     /// Provides packets on-demand for the Vorbis stream decoder.
     /// </summary>
@@ -86,6 +85,6 @@ namespace NVorbis
         /// <summary>
         /// Occurs when the stream is about to change parameters.
         /// </summary>
-        event EventHandler<ParameterChangeEventArgs> ParameterChange;
+        event ParameterChangeDelegate ParameterChange;
     }
 }

@@ -6,9 +6,6 @@
  *                                                                          *
  ***************************************************************************/
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace NVorbis
 {
@@ -16,20 +13,21 @@ namespace NVorbis
     /// Event data for when a logical stream has a parameter change.
     /// </summary>
     [Serializable]
-    public class ParameterChangeEventArgs : EventArgs
+    public readonly struct ParameterChangeEvent
     {
         /// <summary>
-        /// Creates a new instance of <see cref="ParameterChangeEventArgs"/>.
+        /// Gets the first packet after the parameter change.
+        /// This would typically be the parameters packet.
+        /// </summary>
+        public DataPacket FirstPacket { get; }
+
+        /// <summary>
+        /// Creates a new instance of <see cref="ParameterChangeEvent"/>.
         /// </summary>
         /// <param name="firstPacket">The first packet after the parameter change.</param>
-        public ParameterChangeEventArgs(DataPacket firstPacket)
+        public ParameterChangeEvent(DataPacket firstPacket)
         {
             FirstPacket = firstPacket;
         }
-
-        /// <summary>
-        /// Gets the first packet after the parameter change.  This would typically be the parameters packet.
-        /// </summary>
-        public DataPacket FirstPacket { get; private set; }
     }
 }

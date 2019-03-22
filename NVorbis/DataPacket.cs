@@ -408,9 +408,7 @@ namespace NVorbis
             {
                 byte val = (byte)TryPeekBits(8, out int cnt);
                 if (cnt == 0)
-                {
                     return i;
-                }
                 buffer[index++] = val;
                 SkipBits(8);
             }

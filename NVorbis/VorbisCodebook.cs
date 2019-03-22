@@ -105,50 +105,53 @@ namespace NVorbis
             // figure out the maximum bit size; if all are unused, don't do anything else
             if ((MaxBits = Lengths.Max()) > -1)
             {
-                int sortedCount = 0;
-                int[] codewordLengths = null;
+                Span<int> codewordLengths = stackalloc int[0];
                 if (sparse && total >= Entries >> 2)
                 {
-                    codewordLengths = new int[Entries];
-                    Array.Copy(Lengths, codewordLengths, Entries);
+                    codewordLengths = stackalloc int[Entries];
+                    for (int i = 0; i < Entries; i++)
+                        codewordLengths[i] = Lengths[i];
 
                     sparse = false;
                 }
 
                 // compute size of sorted tables
-                sortedCount = sparse ? total : 0;
-                int sortedEntries = sortedCount;
+                int sortedEntries = sparse ? total : 0;
 
-                int[] values = null;
-                int[] codewords = null;
+                Span<int> values = stackalloc int[0];
+                Span<int> codewords = stackalloc int[0];
                 if (!sparse)
                 {
-                    codewords = new int[Entries];
+                    codewords = stackalloc int[Entries];
                 }
                 else if (sortedEntries != 0)
                 {
-                    codewordLengths = new int[sortedEntries];
-                    codewords = new int[sortedEntries];
-                    values = new int[sortedEntries];
+                    codewordLengths = stackalloc int[sortedEntries];
+                    codewords = stackalloc int[sortedEntries];
+                    values = stackalloc int[sortedEntries];
                 }
 
                 if (!ComputeCodewords(sparse, sortedEntries, codewords, codewordLengths, Lengths, Entries, values))
                     throw new InvalidDataException();
 
-                IReadOnlyList<int> valueList;
-                if (values != null)
+                Span<int> valueList = stackalloc int[codewords.Length];
+                if (values.Length != 0)
                     valueList = values;
                 else
-                    valueList = FastRange.Get(0, codewords.Length);
-                
+                {
+                    for (int i = 0; i < codewords.Length; i++)
+                        valueList[i] = i;
+                }
+
+                Span<int> lengthList = codewordLengths.Length > 0 ? codewordLengths : Lengths.AsSpan();
                 PrefixList = Huffman.BuildPrefixedLinkedList(
-                    valueList, codewordLengths ?? Lengths, codewords, out PrefixBitLength, out PrefixOverflowTree);
+                    valueList, lengthList, codewords, out PrefixBitLength, out PrefixOverflowTree);
             }
         }
 
         bool ComputeCodewords(
-            bool sparse, int sortedEntries, int[] codewords,
-            int[] codewordLengths, int[] lengths, int entries, int[] values)
+            bool sparse, int sortedEntries, Span<int> codewords,
+            Span<int> codewordLengths, Span<int> lengths, int entries, Span<int> values)
         {
             int k;
             for (k = 0; k < entries; ++k)
@@ -161,7 +164,7 @@ namespace NVorbis
             int m = 0;
             AddEntry(sparse, codewords, codewordLengths, 0, k, m++, lengths[k], values);
 
-            uint[] available = new uint[32];
+            Span<uint> available = stackalloc uint[32];
             for (int i = 1; i <= lengths[k]; ++i)
                 available[i] = 1U << (32 - i);
 
@@ -191,7 +194,9 @@ namespace NVorbis
             return true;
         }
 
-        void AddEntry(bool sparse, int[] codewords, int[] codewordLengths, uint huffCode, int symbol, int count, int len, int[] values)
+        void AddEntry(
+            bool sparse, Span<int> codewords, Span<int> codewordLengths,
+            uint huffCode, int symbol, int count, int len, Span<int> values)
         {
             if (sparse)
             {
@@ -219,7 +224,7 @@ namespace NVorbis
             if (MapType == 1)
                 lookupValueCount = Lookup1_values();
 
-            uint[] multiplicands = new uint[lookupValueCount];
+            Span<uint> multiplicands = stackalloc uint[lookupValueCount];
             for (var i = 0; i < lookupValueCount; i++)
                 multiplicands[i] = (uint)packet.ReadBits(valueBits);
 
@@ -328,50 +333,6 @@ namespace NVorbis
         public void Dispose()
         {
             Dispose(true);
-        }
-        
-        class FastRange : IReadOnlyList<int>
-        {
-            [ThreadStatic]
-            private static FastRange _cachedRange;
-
-            private int _start;
-
-            public int this[int index]
-            {
-                get
-                {
-                    if (index > Count)
-                        throw new ArgumentOutOfRangeException();
-                    return _start + index;
-                }
-            }
-
-            public int Count { get; private set; }
-
-            private FastRange()
-            {
-            }
-
-            public static FastRange Get(int start, int count)
-            {
-                if (_cachedRange == null)
-                    _cachedRange = new FastRange();
-
-                _cachedRange._start = start;
-                _cachedRange.Count = count;
-                return _cachedRange;
-            }
-
-            public IEnumerator<int> GetEnumerator()
-            {
-                throw new NotSupportedException();
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
-            }
         }
     }
 }

@@ -9,6 +9,8 @@ using System;
 
 namespace NVorbis
 {
+    public delegate void NewStreamDelegate(IContainerReader sender, NewStreamEvent data);
+
     /// <summary>
     /// Provides a interface for a Vorbis logical stream container.
     /// </summary>
@@ -37,7 +39,7 @@ namespace NVorbis
         /// <summary>
         /// Event raised when a new logical stream is found in the container.
         /// </summary>
-        event EventHandler<NewStreamEventArgs> NewStream;
+        event NewStreamDelegate NewStream;
 
         /// <summary>
         /// Initializes the container and finds the first stream.
