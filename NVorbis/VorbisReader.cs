@@ -19,7 +19,7 @@ namespace NVorbis
         List<VorbisStreamDecoder> _decoders;
         List<int> _serials;
 
-        VorbisReader()
+        private VorbisReader()
         {
             ClipSamples = true;
 
@@ -28,7 +28,7 @@ namespace NVorbis
         }
 
         public VorbisReader(string fileName) :
-            this(File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read), true)
+            this(File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read), leaveOpen: false)
         {
         }
 
@@ -190,27 +190,20 @@ namespace NVorbis
         /// <summary>
         /// Reads decoded samples from the current logical stream
         /// </summary>
-        /// <param name="buffer">The buffer to write the samples to</param>
-        /// <param name="offset">The offset into the buffer to write the samples to</param>
-        /// <param name="count">The number of samples to write</param>
+        /// <param name="buffer">The buffer to write the samples to.</param>
         /// <returns>The number of samples written</returns>
-        public int ReadSamples(float[] buffer, int offset, int count)
+        public int ReadSamples(Span<float> buffer)
         {
-            if (offset < 0)
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            if (count < 0 || offset + count > buffer.Length)
-                throw new ArgumentOutOfRangeException(nameof(count));
-
-            count = ActiveDecoder.ReadSamples(buffer, offset, count);
+            int samples = ActiveDecoder.ReadSamples(buffer);
 
             if (ClipSamples)
             {
                 VorbisStreamDecoder decoder = _decoders[StreamIndex];
-                for (int i = 0; i < count; i++, offset++)
-                    buffer[offset] = Utils.ClipValue(buffer[offset], ref decoder._clipped);
+                for (int i = 0; i < samples; i++)
+                    buffer[i] = Utils.ClipValue(buffer[i], ref decoder._clipped);
             }
 
-            return count;
+            return samples;
         }
 
         /// <summary>

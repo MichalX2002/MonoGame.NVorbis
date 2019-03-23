@@ -73,7 +73,7 @@ namespace NVorbis
                 var len = (int)packet.ReadBits(5) + 1;
                 for (var i = 0; i < Entries; )
                 {
-                    int cnt = (int)packet.ReadBits(Utils.ilog(Entries - i));
+                    int cnt = (int)packet.ReadBits(Utils.ILog(Entries - i));
 
                     while (--cnt >= 0)
                         Lengths[i++] = len;

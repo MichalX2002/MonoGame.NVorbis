@@ -326,7 +326,7 @@ namespace NVorbis
 
             _wasteHdrBits += 8 * packet.Length - packet.BitsRead;
 
-            _modeFieldBits = Utils.ilog(Modes.Length - 1);
+            _modeFieldBits = Utils.ILog(Modes.Length - 1);
 
             return true;
         }
@@ -398,8 +398,8 @@ namespace NVorbis
 
         void SaveBuffer()
         {
-            var buf = new float[_preparedLength * _channels];
-            ReadSamples(buf, 0, buf.Length);
+            float[] buf = new float[_preparedLength * _channels];
+            ReadSamples(buf);
             _prevBuffer = buf;
         }
 
@@ -670,9 +670,7 @@ namespace NVorbis
                 // get the next packet
                 var packetProvider = _packetProvider;
                 if (packetProvider != null)
-                {
                     packet = packetProvider.GetNextPacket();
-                }
 
                 // if the packet is null, we've hit the end or the packet reader has been disposed...
                 if (packet == null)
@@ -682,13 +680,12 @@ namespace NVorbis
                 }
 
                 // keep our page count in sync
-                if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber))) _pagesSeen.Add(_lastPageSeen);
+                if (!_pagesSeen.Contains((_lastPageSeen = packet.PageSequenceNumber)))
+                    _pagesSeen.Add(_lastPageSeen);
 
                 // check for resync
                 if (packet.IsResync)
-                {
                     ResetDecoder(false); // if we're a resync, our current decoder state is invalid...
-                }
 
                 // check for parameter change
                 if (packet == _parameterChangePacket)
@@ -707,18 +704,14 @@ namespace NVorbis
                 packet.Done();
 
                 // we can now safely decode all the data without having to worry about a corrupt or partial packet
-
                 DecodePacket();
                 var samplesDecoded = OverlapSamples();
 
                 // we can do something cool here...  mark down how many samples were decoded in this packet
-                if (packet.GranuleCount.HasValue == false)
-                {
+                if (!packet.GranuleCount.HasValue)
                     packet.GranuleCount = samplesDecoded;
-                }
 
                 // update our position
-
                 UpdatePosition(samplesDecoded, packet);
 
                 // a little statistical housekeeping...
@@ -749,44 +742,51 @@ namespace NVorbis
         internal int GetPacketLength(DataPacket curPacket, DataPacket lastPacket)
         {
             // if we don't have a previous packet, or we're re-syncing, this packet has no audio data to return
-            if (lastPacket == null || curPacket.IsResync) return 0;
+            if (lastPacket == null || curPacket.IsResync)
+                return 0;
 
             // make sure they are audio packets
-            if (curPacket.ReadBit()) return 0;
-            if (lastPacket.ReadBit()) return 0;
+            if (curPacket.ReadBit())
+                return 0;
+            if (lastPacket.ReadBit())
+                return 0;
 
             // get the current packet's information
-            var modeIdx = (int)curPacket.ReadBits(_modeFieldBits);
-            if (modeIdx < 0 || modeIdx >= Modes.Length) return 0;
-            var mode = Modes[modeIdx];
+            int modeIndex = (int)curPacket.ReadBits(_modeFieldBits);
+            if (modeIndex < 0 || modeIndex >= Modes.Length)
+                return 0;
+            var mode = Modes[modeIndex];
 
             // get the last packet's information
-            modeIdx = (int)lastPacket.ReadBits(_modeFieldBits);
-            if (modeIdx < 0 || modeIdx >= Modes.Length) return 0;
-            var prevMode = Modes[modeIdx];
+            modeIndex = (int)lastPacket.ReadBits(_modeFieldBits);
+            if (modeIndex < 0 || modeIndex >= Modes.Length)
+                return 0;
 
             // now calculate the totals...
+            var prevMode = Modes[modeIndex];
             return mode.BlockSize / 4 + prevMode.BlockSize / 4;
         }
 
         #endregion
 
-        internal int ReadSamples(float[] buffer, int offset, int count)
+        internal int ReadSamples(Span<float> buffer)
         {
             int samplesRead = 0;
+            int count = buffer.Length;
+            int offset = 0;
 
             lock (_seekLock)
             {
                 if (_prevBuffer != null)
                 {
                     // get samples from the previous buffer's data
-                    var cnt = Math.Min(count, _prevBuffer.Length);
-                    Buffer.BlockCopy(_prevBuffer, 0, buffer, offset, cnt * sizeof(float));
-
+                    int cnt = Math.Min(count, _prevBuffer.Length);
+                    _prevBuffer.CopyTo(buffer.Slice(offset, count));
+                    
                     // if we have samples left over, rebuild the previous buffer array...
                     if (cnt < _prevBuffer.Length)
                     {
-                        var buf = new float[_prevBuffer.Length - cnt];
+                        float[] buf = new float[_prevBuffer.Length - cnt];
                         Buffer.BlockCopy(_prevBuffer, cnt * sizeof(float), buf, 0, (_prevBuffer.Length - cnt) * sizeof(float));
                         _prevBuffer = buf;
                     }
@@ -803,7 +803,8 @@ namespace NVorbis
                 }
                 else if (_isParameterChange)
                 {
-                    throw new InvalidOperationException("Currently pending a parameter change.  Read new parameters before requesting further samples!");
+                    throw new InvalidOperationException(
+                        "Currently pending a parameter change. Read new parameters before requesting further samples.");
                 }
 
                 int minSize = count + Block1Size * _channels;
@@ -817,7 +818,7 @@ namespace NVorbis
                     if (_prevBuffer != null)
                     {
                         // uh-oh... something is wrong...
-                        return ReadSamples(buffer, offset, _prevBuffer.Length);
+                        return ReadSamples(buffer.Slice(offset, _prevBuffer.Length));
                     }
                 }
 
@@ -827,7 +828,7 @@ namespace NVorbis
                     count = _preparedLength * _channels;
                 }
 
-                _outputBuffer.CopyTo(buffer, offset, count);
+                _outputBuffer.CopyTo(buffer.Slice(offset, count));
                 _preparedLength -= count / _channels;
                 _reportedPosition = _currentPosition - _preparedLength;
             }
@@ -840,7 +841,8 @@ namespace NVorbis
             get => _isParameterChange;
             set
             {
-                if (value) throw new InvalidOperationException("Only clearing is supported!");
+                if (value)
+                    throw new InvalidOperationException("Only clearing is supported.");
                 _isParameterChange = value;
             }
         }
@@ -849,15 +851,18 @@ namespace NVorbis
 
         internal void SeekTo(long granulePos)
         {
-            if (!_packetProvider.CanSeek) throw new NotSupportedException();
+            if (!_packetProvider.CanSeek)
+                throw new NotSupportedException();
 
-            if (granulePos < 0) throw new ArgumentOutOfRangeException("granulePos");
+            if (granulePos < 0)
+                throw new ArgumentOutOfRangeException(nameof(granulePos));
 
             DataPacket packet;
             if (granulePos > 0)
             {
                 packet = _packetProvider.FindPacket(granulePos, GetPacketLength);
-                if (packet == null) throw new ArgumentOutOfRangeException("granulePos");
+                if (packet == null)
+                    throw new ArgumentOutOfRangeException(nameof(granulePos));
             }
             else
             {
@@ -877,16 +882,16 @@ namespace NVorbis
 
                 // now read samples until we are exactly at the granule position requested
                 CurrentPosition = dataPacket.GranulePosition;
-                var cnt = (int)((granulePos - CurrentPosition) * _channels);
+                int cnt = (int)((granulePos - CurrentPosition) * _channels);
                 if (cnt > 0)
                 {
-                    var seekBuffer = new float[cnt];
+                    Span<float> seekBuffer = stackalloc float[cnt];
                     while (cnt > 0)
                     {
-                        var temp = ReadSamples(seekBuffer, 0, cnt);
-                        if (temp == 0)
+                        int tmp = ReadSamples(seekBuffer);
+                        if (tmp == 0)
                             break; // we're at the end...
-                        cnt -= temp;
+                        cnt -= tmp;
                     }
                 }
             }

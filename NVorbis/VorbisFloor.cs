@@ -98,7 +98,7 @@ namespace NVorbis
 
                     _books[i] = book;
                 }
-                _bookBits = Utils.ilog(_books.Length);
+                _bookBits = Utils.ILog(_books.Length);
 
                 _barkMaps = new Dictionary<int, int[]>();
                 _barkMaps[_vorbis.Block0Size] = SynthesizeBarkCurve(_vorbis.Block0Size / 2);

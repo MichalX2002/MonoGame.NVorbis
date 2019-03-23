@@ -32,38 +32,35 @@ namespace NVorbis
 
             if (_bufLen < size)
             {
-                var temp = new float[size];
-                Array.Copy(_buffer, _start, temp, 0, _bufLen - _start);
+                var tmp = new float[size];
+                Array.Copy(_buffer, _start, tmp, 0, _bufLen - _start);
                 if (_end < _start)
-                    Array.Copy(_buffer, 0, temp, _bufLen - _start, _end);
+                    Array.Copy(_buffer, 0, tmp, _bufLen - _start, _end);
 
                 var end = Length;
                 _start = 0;
                 _end = end;
-                _buffer = temp;
+                _buffer = tmp;
 
                 _bufLen = size;
             }
         }
 
-        internal void CopyTo(float[] buffer, int index, int count)
+        internal void CopyTo(Span<float> buffer)
         {
-            if (index < 0 || index + count > buffer.Length)
-                throw new ArgumentOutOfRangeException(nameof(index));
-
             int start = _start;
-            RemoveItems(count);
+            RemoveItems(buffer.Length);
 
             // this is used to pull data out of the buffer, so we'll update the start position too...
             int len = (_end - start + _bufLen) % _bufLen;
-            if (count > len)
-                throw new ArgumentOutOfRangeException(nameof(count));
+            if (buffer.Length > len)
+                throw new ArgumentException(nameof(buffer));
 
-            int cnt = Math.Min(count, _bufLen - start);
-            Buffer.BlockCopy(_buffer, start * sizeof(float), buffer, index * sizeof(float), cnt * sizeof(float));
+            int cnt = Math.Min(buffer.Length, _bufLen - start);
+            _buffer.AsSpan(start, cnt).CopyTo(buffer);
 
-            if (cnt < count)
-                Buffer.BlockCopy(_buffer, 0, buffer, (index + cnt) * sizeof(float), (count - cnt) * sizeof(float));
+            if (cnt < buffer.Length)
+                _buffer.AsSpan(0, buffer.Length - cnt).CopyTo(buffer.Slice(cnt));
         }
 
         internal void RemoveItems(int count)
@@ -75,7 +72,8 @@ namespace NVorbis
                     throw new ArgumentOutOfRangeException();
             }
             else
-            {                 // wrap-around
+            {
+                // wrap-around
                 if (cnt < _start && cnt > _end)
                     throw new ArgumentOutOfRangeException();
             }
@@ -92,10 +90,10 @@ namespace NVorbis
         {
             get
             {
-                int temp = _end - _start;
-                if (temp < 0)
-                    temp += _bufLen;
-                return temp;
+                int tmp = _end - _start;
+                if (tmp < 0)
+                    tmp += _bufLen;
+                return tmp;
             }
         }
 
