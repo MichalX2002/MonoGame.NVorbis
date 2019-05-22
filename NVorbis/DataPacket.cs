@@ -351,8 +351,7 @@ namespace NVorbis
             // short-circuit 0
             if (count == 0)
                 return 0UL;
-
-            ulong value = TryPeekBits(count, out int temp);
+            ulong value = TryPeekBits(count, out _);
 
             SkipBits(count);
 
@@ -365,7 +364,7 @@ namespace NVorbis
         /// <returns>The byte read from the packet.</returns>
         public byte PeekByte()
         {
-            return (byte)TryPeekBits(8, out int temp);
+            return (byte)TryPeekBits(8, out _);
         }
 
         /// <summary>

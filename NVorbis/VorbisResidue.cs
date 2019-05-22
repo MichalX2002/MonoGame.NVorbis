@@ -132,7 +132,7 @@ namespace NVorbis
                 }
 
                 // now the lookups
-                dim = _classBook.Dimensions;
+                _ = _classBook.Dimensions;
 
                 _books = new VorbisCodebook[_classifications][];
 

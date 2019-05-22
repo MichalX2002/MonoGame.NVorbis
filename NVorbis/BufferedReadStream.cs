@@ -59,7 +59,7 @@ namespace NVorbis
                 initialSize = 1;
 
             if (initialSize > maxBufferSize)
-                initialSize = maxBufferSize;
+                _ = maxBufferSize;
 
             _baseStream = baseStream;
             _leaveOpen = leaveOpen;

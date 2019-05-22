@@ -293,7 +293,7 @@ namespace NVorbis
             }
 
             // nope, not possible... run the tree
-            bits = (int)packet.TryPeekBits(MaxBits, out bitCnt);
+            bits = (int)packet.TryPeekBits(MaxBits, out _);
 
             node = PrefixOverflowTree;
             do
