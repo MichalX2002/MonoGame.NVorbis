@@ -15,7 +15,7 @@ namespace NVorbis
     {
         internal static VorbisResidue Init(VorbisStreamDecoder vorbis, DataPacket packet)
         {
-            var type = (int)packet.ReadBits(16);
+            var type = (int)packet.ReadUBits(16);
 
             VorbisResidue residue = null;
             switch (type)
@@ -93,19 +93,19 @@ namespace NVorbis
             protected override void Init(DataPacket packet)
             {
                 // this is pretty well stolen directly from libvorbis...  BSD license
-                _begin = (int)packet.ReadBits(24);
-                _end = (int)packet.ReadBits(24);
-                _partitionSize = (int)packet.ReadBits(24) + 1;
-                _classifications = (int)packet.ReadBits(6) + 1;
-                _classBook = _vorbis.Books[(int)packet.ReadBits(8)];
+                _begin = (int)packet.ReadUBits(24);
+                _end = (int)packet.ReadUBits(24);
+                _partitionSize = (int)packet.ReadUBits(24) + 1;
+                _classifications = (int)packet.ReadUBits(6) + 1;
+                _classBook = _vorbis.Books[(int)packet.ReadUBits(8)];
 
                 _cascade = new int[_classifications];
                 int acc = 0;
                 for (int i = 0; i < _classifications; i++)
                 {
-                    var low_bits = (int)packet.ReadBits(3);
+                    var low_bits = (int)packet.ReadUBits(3);
                     if (packet.ReadBit())
-                        _cascade[i] = (int)packet.ReadBits(5) << 3 | low_bits;
+                        _cascade[i] = (int)packet.ReadUBits(5) << 3 | low_bits;
                     else
                         _cascade[i] = low_bits;
 
@@ -115,7 +115,7 @@ namespace NVorbis
                 int[] bookNums = new int[acc];
                 for (var i = 0; i < acc; i++)
                 {
-                    bookNums[i] = (int)packet.ReadBits(8);
+                    bookNums[i] = (int)packet.ReadUBits(8);
                     if (_vorbis.Books[bookNums[i]].MapType == 0)
                         throw new InvalidDataException();
                 }

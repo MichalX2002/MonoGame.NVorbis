@@ -13,7 +13,7 @@ namespace NVorbis
     {
         internal static VorbisTime Init(VorbisStreamDecoder vorbis, DataPacket packet)
         {
-            var type = (int)packet.ReadBits(16);
+            var type = (int)packet.ReadUBits(16);
 
             VorbisTime time = null;
             switch (type)

@@ -79,11 +79,11 @@ namespace NVorbis
     internal static class HuffmanPool
     {
         private static object _mutex = new object();
-        private static Stack<Node> _pool = new Stack<Node>();
+        private static Stack<HuffmanNode> _pool = new Stack<HuffmanNode>();
 
         public const int MAX_NODES = 1024 * 32;
 
-        public static Node Rent(int value, int length, int bits, int mask)
+        public static HuffmanNode Rent(int value, int length, int bits, int mask)
         {
             lock (_mutex)
             {
@@ -97,7 +97,7 @@ namespace NVorbis
             return new HuffmanNode(value, length, bits, mask);
         }
 
-        public static void Return(Node node)
+        public static void Return(HuffmanNode node)
         {
             if (node == null)
                 return;
@@ -106,18 +106,18 @@ namespace NVorbis
             {
                 node.IsInUse = false;
 
-                Return(node.Next);
-                node.Next = null;
-
                 lock (_mutex)
                 {
+                    Return(node.Next);
+                    node.Next = null;
+
                     if (_pool.Count < MAX_NODES)
                         _pool.Push(node);
                 }
             }
         }
 
-        internal class Node : IComparable<Node>
+        internal class Node : IComparable<HuffmanNode>
         {
             internal bool IsInUse;
 
@@ -127,7 +127,7 @@ namespace NVorbis
             public int Mask;
 
             public bool IsLinked;
-            public Node Next;
+            public HuffmanNode Next;
 
             internal Node(int value, int length, int bits, int mask)
             {
@@ -144,7 +144,7 @@ namespace NVorbis
                 IsLinked = false;
             }
 
-            public int CompareTo(Node other)
+            public int CompareTo(HuffmanNode other)
             {
                 int len = Length - other.Length;
                 if (len == 0)

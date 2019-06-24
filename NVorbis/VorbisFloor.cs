@@ -15,7 +15,7 @@ namespace NVorbis
     {
         internal static VorbisFloor Create(VorbisStreamDecoder vorbis, DataPacket packet)
         {
-            int type = (int)packet.ReadBits(16);
+            int type = (int)packet.ReadUBits(16);
 
             VorbisFloor floor = null;
             switch (type)
@@ -74,12 +74,12 @@ namespace NVorbis
             protected override void Init(DataPacket packet)
             {
                 // this is pretty well stolen directly from libvorbis...  BSD license
-                _order = (int)packet.ReadBits(8);
-                _rate = (int)packet.ReadBits(16);
-                _bark_map_size = (int)packet.ReadBits(16);
-                _ampBits = (int)packet.ReadBits(6);
-                _ampOfs = (int)packet.ReadBits(8);
-                _books = new VorbisCodebook[(int)packet.ReadBits(4) + 1];
+                _order = (int)packet.ReadUBits(8);
+                _rate = (int)packet.ReadUBits(16);
+                _bark_map_size = (int)packet.ReadUBits(16);
+                _ampBits = (int)packet.ReadUBits(6);
+                _ampOfs = (int)packet.ReadUBits(8);
+                _books = new VorbisCodebook[(int)packet.ReadUBits(4) + 1];
 
                 if (_order < 1 || _rate < 1 || _bark_map_size < 1 || _books.Length == 0)
                     throw new InvalidDataException();
@@ -88,7 +88,7 @@ namespace NVorbis
 
                 for (int i = 0; i < _books.Length; i++)
                 {
-                    int num = (int)packet.ReadBits(8);
+                    int num = (int)packet.ReadUBits(8);
                     if (num < 0 || num >= _vorbis.Books.Length)
                         throw new InvalidDataException();
                     VorbisCodebook book = _vorbis.Books[num];
@@ -159,7 +159,7 @@ namespace NVorbis
                 data.ForceEnergy = false;
                 data.ForceNoEnergy = false;
 
-                data.Amp = packet.ReadBits(_ampBits);
+                data.Amp = packet.ReadUBits(_ampBits);
                 if (data.Amp > 0f)
                 {
                     // this is pretty well stolen directly from libvorbis...  BSD license
@@ -167,7 +167,7 @@ namespace NVorbis
 
                     data.Amp = (float)(data.Amp / _ampDiv * _ampOfs);
 
-                    uint bookNum = (uint)packet.ReadBits(_bookBits);
+                    uint bookNum = (uint)packet.ReadUBits(_bookBits);
                     if (bookNum >= _books.Length)
                     {
                         // we ran out of data or the packet is corrupt...  0 the floor and return
@@ -285,9 +285,9 @@ namespace NVorbis
 
             protected override void Init(DataPacket packet)
             {
-                _partitionClass = new int[(int)packet.ReadBits(5)];
+                _partitionClass = new int[(int)packet.ReadUBits(5)];
                 for (int i = 0; i < _partitionClass.Length; i++)
-                    _partitionClass[i] = (int)packet.ReadBits(4);
+                    _partitionClass[i] = (int)packet.ReadUBits(4);
 
                 int maximum_class = _partitionClass.Max();
                 _classDimensions = new int[maximum_class + 1];
@@ -299,11 +299,11 @@ namespace NVorbis
 
                 for (int i = 0; i <= maximum_class; i++)
                 {
-                    _classDimensions[i] = (int)packet.ReadBits(3) + 1;
-                    _classSubclasses[i] = (int)packet.ReadBits(2);
+                    _classDimensions[i] = (int)packet.ReadUBits(3) + 1;
+                    _classSubclasses[i] = (int)packet.ReadUBits(2);
                     if (_classSubclasses[i] > 0)
                     {
-                        _classMasterBookIndex[i] = (int)packet.ReadBits(8);
+                        _classMasterBookIndex[i] = (int)packet.ReadUBits(8);
                         _classMasterBooks[i] = _vorbis.Books[_classMasterBookIndex[i]];
                     }
 
@@ -311,19 +311,19 @@ namespace NVorbis
                     _subclassBookIndex[i] = new int[_subclassBooks[i].Length];
                     for (int j = 0; j < _subclassBooks[i].Length; j++)
                     {
-                        int bookNum = (int)packet.ReadBits(8) - 1;
+                        int bookNum = (int)packet.ReadUBits(8) - 1;
                         if (bookNum >= 0)
                             _subclassBooks[i][j] = _vorbis.Books[bookNum];
                         _subclassBookIndex[i][j] = bookNum;
                     }
                 }
 
-                _multiplier = (int)packet.ReadBits(2);
+                _multiplier = (int)packet.ReadUBits(2);
                 _range = _rangeLookup[_multiplier];
                 _yBits = _yBitsLookup[_multiplier];
                 _multiplier++;
 
-                int rangeBits = (int)packet.ReadBits(4);
+                int rangeBits = (int)packet.ReadUBits(4);
 
                 int xListIndex = 0;
                 int xListSize = 2; // we always add at least 2 elements
@@ -342,7 +342,7 @@ namespace NVorbis
                     int classNum = _partitionClass[i];
                     int dim = _classDimensions[classNum];
                     for (int j = 0; j < dim; j++)
-                        _xList[xListIndex++] = (int)packet.ReadBits(rangeBits);
+                        _xList[xListIndex++] = (int)packet.ReadUBits(rangeBits);
                 }
 
                 // precalc the low and high neighbors (and init the sort table)
@@ -420,8 +420,8 @@ namespace NVorbis
                 if (packet.ReadBit())
                 {
                     var postCount = 2;
-                    data.Posts[0] = (int)packet.ReadBits(_yBits);
-                    data.Posts[1] = (int)packet.ReadBits(_yBits);
+                    data.Posts[0] = (int)packet.ReadUBits(_yBits);
+                    data.Posts[1] = (int)packet.ReadUBits(_yBits);
 
                     for (int i = 0; i < _partitionClass.Length; i++)
                     {

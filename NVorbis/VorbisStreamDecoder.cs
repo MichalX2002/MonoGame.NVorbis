@@ -210,8 +210,8 @@ namespace NVorbis
             _nominalBitrate = packet.ReadInt32();
             _lowerBitrate = packet.ReadInt32();
 
-            Block0Size = 1 << (int)packet.ReadBits(4);
-            Block1Size = 1 << (int)packet.ReadBits(4);
+            Block0Size = 1 << (int)packet.ReadUBits(4);
+            Block1Size = 1 << (int)packet.ReadUBits(4);
 
             if (_nominalBitrate == 0)
                 if (_upperBitrate > 0 && _lowerBitrate > 0)
@@ -273,7 +273,7 @@ namespace NVorbis
             bits = packet.BitsRead;
 
             // get times
-            Times = new VorbisTime[(int)packet.ReadBits(6) + 1];
+            Times = new VorbisTime[(int)packet.ReadUBits(6) + 1];
             for (int i = 0; i < Times.Length; i++)
             {
                 Times[i] = VorbisTime.Init(this, packet);
@@ -283,7 +283,7 @@ namespace NVorbis
             bits = packet.BitsRead;
 
             // get floor
-            Floors = new VorbisFloor[(int)packet.ReadBits(6) + 1];
+            Floors = new VorbisFloor[(int)packet.ReadUBits(6) + 1];
             for (int i = 0; i < Floors.Length; i++)
                 Floors[i] = VorbisFloor.Create(this, packet);
 
@@ -291,7 +291,7 @@ namespace NVorbis
             bits = packet.BitsRead;
 
             // get residue
-            Residues = new VorbisResidue[(int)packet.ReadBits(6) + 1];
+            Residues = new VorbisResidue[(int)packet.ReadUBits(6) + 1];
             for (int i = 0; i < Residues.Length; i++)
             {
                 Residues[i] = VorbisResidue.Init(this, packet);
@@ -301,7 +301,7 @@ namespace NVorbis
             bits = packet.BitsRead;
 
             // get map
-            Maps = new VorbisMapping[(int)packet.ReadBits(6) + 1];
+            Maps = new VorbisMapping[(int)packet.ReadUBits(6) + 1];
             for (int i = 0; i < Maps.Length; i++)
             {
                 Maps[i] = VorbisMapping.Create(this, packet);
@@ -311,7 +311,7 @@ namespace NVorbis
             bits = packet.BitsRead;
 
             // get mode settings
-            Modes = new VorbisMode[(int)packet.ReadBits(6) + 1];
+            Modes = new VorbisMode[(int)packet.ReadUBits(6) + 1];
             for (int i = 0; i < Modes.Length; i++)
             {
                 Modes[i] = VorbisMode.Init(this, packet);
@@ -414,7 +414,7 @@ namespace NVorbis
 
             // get mode and prev/next flags
             var modeBits = _modeFieldBits;
-            _mode = Modes[(int)packet.ReadBits(_modeFieldBits)];
+            _mode = Modes[(int)packet.ReadUBits(_modeFieldBits)];
             if (_mode.BlockFlag)
             {
                 _prevFlag = packet.ReadBit();
@@ -752,13 +752,13 @@ namespace NVorbis
                 return 0;
 
             // get the current packet's information
-            int modeIndex = (int)curPacket.ReadBits(_modeFieldBits);
+            int modeIndex = (int)curPacket.ReadUBits(_modeFieldBits);
             if (modeIndex < 0 || modeIndex >= Modes.Length)
                 return 0;
             var mode = Modes[modeIndex];
 
             // get the last packet's information
-            modeIndex = (int)lastPacket.ReadBits(_modeFieldBits);
+            modeIndex = (int)lastPacket.ReadUBits(_modeFieldBits);
             if (modeIndex < 0 || modeIndex >= Modes.Length)
                 return 0;
 

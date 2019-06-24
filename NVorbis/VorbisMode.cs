@@ -19,9 +19,9 @@ namespace NVorbis
         {
             var mode = new VorbisMode(vorbis);
             mode.BlockFlag = packet.ReadBit();
-            mode.WindowType = (int)packet.ReadBits(16);
-            mode.TransformType = (int)packet.ReadBits(16);
-            var mapping = (int)packet.ReadBits(8);
+            mode.WindowType = (int)packet.ReadUBits(16);
+            mode.TransformType = (int)packet.ReadUBits(16);
+            var mapping = (int)packet.ReadUBits(8);
 
             if (mode.WindowType != 0 || mode.TransformType != 0 || mapping >= vorbis.Maps.Length) throw new InvalidDataException();
 

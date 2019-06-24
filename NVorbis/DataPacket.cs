@@ -6,6 +6,7 @@
  *                                                                          *
  ***************************************************************************/
 using System;
+using System.Runtime.CompilerServices;
 
 namespace NVorbis
 {
@@ -123,13 +124,15 @@ namespace NVorbis
         }
 
         /// <summary>
-        /// Attempts to read the specified number of bits from the packet, but may return fewer.  Does not advance the position counter.
+        /// Attempts to read the specified number of bits (up to 64) from the packet, but may return fewer.
+        /// Does not advance the position counter.
         /// </summary>
         /// <param name="count">The number of bits to attempt to read.</param>
         /// <param name="bitsRead">The number of bits actually read.</param>
         /// <returns>The value of the bits read.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is not between 0 and 64.</exception>
-        public ulong TryPeekBits(int count, out int bitsRead)
+        [CLSCompliant(false)]
+        public ulong TryPeekU64Bits(int count, out int bitsRead)
         {
             if (count < 0 || count > 64)
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -140,8 +143,7 @@ namespace NVorbis
                 return 0UL;
             }
 
-            ulong value = 0;
-
+            ulong value;
             while (_bitCount < count)
             {
                 int val = ReadNextByte();
@@ -169,6 +171,19 @@ namespace NVorbis
 
             bitsRead = count;
             return value;
+        }
+
+        [CLSCompliant(false)]
+        public long TryPeek64Bits(int count, out int bitsRead)
+        {
+            ulong ul = TryPeekU64Bits(count, out bitsRead);
+            return CastToSigned(ul);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static long CastToSigned(ulong value)
+        {
+            return unchecked((long)value + long.MinValue);
         }
 
         /// <summary>
@@ -346,16 +361,23 @@ namespace NVorbis
         /// <param name="count">The number of bits to read.</param>
         /// <returns>The value of the bits read.</returns>
         /// <exception cref="ArgumentOutOfRangeException">The number of bits specified is not between 0 and 64.</exception>
-        public ulong ReadBits(int count)
+        [CLSCompliant(false)]
+        public ulong ReadUBits(int count)
         {
             // short-circuit 0
             if (count == 0)
                 return 0UL;
-            ulong value = TryPeekBits(count, out _);
+            ulong value = TryPeekU64Bits(count, out _);
 
             SkipBits(count);
 
             return value;
+        }
+
+        public long ReadBits(int count)
+        {
+            ulong ul = ReadUBits(count);
+            return CastToSigned(ul);
         }
 
         /// <summary>
@@ -364,7 +386,7 @@ namespace NVorbis
         /// <returns>The byte read from the packet.</returns>
         public byte PeekByte()
         {
-            return (byte)TryPeekBits(8, out _);
+            return (byte)TryPeekU64Bits(8, out _);
         }
 
         /// <summary>
@@ -373,7 +395,7 @@ namespace NVorbis
         /// <returns>The byte read from the packet.</returns>
         public byte ReadByte()
         {
-            return (byte)ReadBits(8);
+            return (byte)ReadUBits(8);
         }
 
         /// <summary>
@@ -405,7 +427,7 @@ namespace NVorbis
                 throw new ArgumentOutOfRangeException(nameof(index));
             for (int i = 0; i < count; i++)
             {
-                byte val = (byte)TryPeekBits(8, out int cnt);
+                byte val = (byte)TryPeekU64Bits(8, out int cnt);
                 if (cnt == 0)
                     return i;
                 buffer[index++] = val;
@@ -420,7 +442,7 @@ namespace NVorbis
         /// <returns>The value of the bit read.</returns>
         public bool ReadBit()
         {
-            return ReadBits(1) == 1;
+            return ReadUBits(1) == 1;
         }
 
         /// <summary>
@@ -429,7 +451,7 @@ namespace NVorbis
         /// <returns>The value of the next 16 bits.</returns>
         public short ReadInt16()
         {
-            return (short)ReadBits(16);
+            return unchecked((short)ReadUBits(16));
         }
 
         /// <summary>
@@ -438,7 +460,7 @@ namespace NVorbis
         /// <returns>The value of the next 32 bits.</returns>
         public int ReadInt32()
         {
-            return (int)ReadBits(32);
+            return unchecked((int)ReadUBits(32));
         }
 
         /// <summary>
@@ -447,34 +469,37 @@ namespace NVorbis
         /// <returns>The value of the next 64 bits.</returns>
         public long ReadInt64()
         {
-            return (long)ReadBits(64);
+            return unchecked((long)ReadUBits(64));
         }
 
         /// <summary>
         /// Retrieves the next 16 bits from the packet as a <see cref="ushort"/> and advances the position counter.
         /// </summary>
         /// <returns>The value of the next 16 bits.</returns>
+        [CLSCompliant(false)]
         public ushort ReadUInt16()
         {
-            return (ushort)ReadBits(16);
+            return (ushort)ReadUBits(16);
         }
 
         /// <summary>
         /// Retrieves the next 32 bits from the packet as a <see cref="uint"/> and advances the position counter.
         /// </summary>
         /// <returns>The value of the next 32 bits.</returns>
+        [CLSCompliant(false)]
         public uint ReadUInt32()
         {
-            return (uint)ReadBits(32);
+            return (uint)ReadUBits(32);
         }
 
         /// <summary>
         /// Retrieves the next 64 bits from the packet as a <see cref="ulong"/> and advances the position counter.
         /// </summary>
         /// <returns>The value of the next 64 bits.</returns>
+        [CLSCompliant(false)]
         public ulong ReadUInt64()
         {
-            return (ulong)ReadBits(64);
+            return ReadUBits(64);
         }
 
         /// <summary>

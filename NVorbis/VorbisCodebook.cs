@@ -47,13 +47,13 @@ namespace NVorbis
         internal void Init(DataPacket packet)
         {
             // first, check the sync pattern
-            ulong chkVal = packet.ReadBits(24);
+            ulong chkVal = packet.ReadUBits(24);
             if (chkVal != 0x564342UL)
                 throw new InvalidDataException();
 
             // get the counts
-            Dimensions = (int)packet.ReadBits(16);
-            Entries = (int)packet.ReadBits(24);
+            Dimensions = (int)packet.ReadUBits(16);
+            Entries = (int)packet.ReadUBits(24);
             
             // init the storage
             Lengths = new int[Entries];
@@ -70,10 +70,10 @@ namespace NVorbis
             if (packet.ReadBit())
             {
                 // ordered
-                var len = (int)packet.ReadBits(5) + 1;
+                var len = (int)packet.ReadUBits(5) + 1;
                 for (var i = 0; i < Entries; )
                 {
-                    int cnt = (int)packet.ReadBits(Utils.ILog(Entries - i));
+                    int cnt = (int)packet.ReadUBits(Utils.ILog(Entries - i));
 
                     while (--cnt >= 0)
                         Lengths[i++] = len;
@@ -91,7 +91,7 @@ namespace NVorbis
                 {
                     if (!sparse || packet.ReadBit())
                     {
-                        Lengths[i] = (int)packet.ReadBits(5) + 1;
+                        Lengths[i] = (int)packet.ReadUBits(5) + 1;
                         total++;
                     }
                     else
@@ -210,13 +210,13 @@ namespace NVorbis
 
         void InitLookupTable(DataPacket packet)
         {
-            MapType = (int)packet.ReadBits(4);
+            MapType = (int)packet.ReadUBits(4);
             if (MapType == 0)
                 return;
 
             float minValue = Utils.ConvertFromVorbisFloat32(packet.ReadUInt32());
             float deltaValue = Utils.ConvertFromVorbisFloat32(packet.ReadUInt32());
-            int valueBits = (int)packet.ReadBits(4) + 1;
+            int valueBits = (int)packet.ReadUBits(4) + 1;
             bool sequence_p = packet.ReadBit();
 
             int lookupValueCount = Entries * Dimensions;
@@ -226,7 +226,7 @@ namespace NVorbis
 
             Span<uint> multiplicands = stackalloc uint[lookupValueCount];
             for (var i = 0; i < lookupValueCount; i++)
-                multiplicands[i] = (uint)packet.ReadBits(valueBits);
+                multiplicands[i] = (uint)packet.ReadUBits(valueBits);
 
             // now that we have the initial data read in, calculate the entry tree
             if (MapType == 1)
@@ -280,7 +280,7 @@ namespace NVorbis
 
         internal int DecodeScalar(DataPacket packet)
         {
-            int bits = (int)packet.TryPeekBits(PrefixBitLength, out int bitCnt);
+            int bits = (int)packet.TryPeekU64Bits(PrefixBitLength, out int bitCnt);
             if (bitCnt == 0)
                 return -1;
 
@@ -293,7 +293,7 @@ namespace NVorbis
             }
 
             // nope, not possible... run the tree
-            bits = (int)packet.TryPeekBits(MaxBits, out _);
+            bits = (int)packet.TryPeekU64Bits(MaxBits, out _);
 
             node = PrefixOverflowTree;
             do
