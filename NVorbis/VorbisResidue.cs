@@ -302,7 +302,8 @@ namespace NVorbis
                 return base.Decode(packet, doNotDecode, 1, blockSize * channels);
             }
 
-            protected override bool WriteVectors(VorbisCodebook codebook, DataPacket packet, float[][] residue, int channel, int offset, int partitionSize)
+            protected override bool WriteVectors(
+                VorbisCodebook codebook, DataPacket packet, float[][] residue, int channel, int offset, int partitionSize)
             {
                 int chPtr = 0;
 

@@ -7,7 +7,7 @@ namespace NVorbis.Ogg
         private static object _mutex = new object();
         private static Stack<OggPacket> _pool = new Stack<OggPacket>();
 
-        public static int MAX_PACKETS = 1024 * 128;
+        public static int MaxPackets = 1024 * 128;
 
         public static OggPacket Rent(OggContainerReader reader, long streamOffset, int length)
         {
@@ -30,7 +30,7 @@ namespace NVorbis.Ogg
             
             lock (_mutex)
             {
-                if (_pool.Count < MAX_PACKETS)
+                if (_pool.Count < MaxPackets)
                     _pool.Push(packet);
             }
         }

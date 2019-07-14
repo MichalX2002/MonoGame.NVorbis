@@ -422,7 +422,7 @@ namespace NVorbis.OpenTKSupport
             int readSamples;
             lock (readMutex)
             {   
-                readSamples = stream.Reader.ReadSamples(readSampleBuffer, 0, BufferSize);
+                readSamples = stream.Reader.ReadSamples(readSampleBuffer.AsSpan(0, BufferSize));
                 CastBuffer(readSampleBuffer, castBuffer, readSamples);
             }
             AL.BufferData(bufferId, stream.Reader.Channels == 1 ? ALFormat.Mono16 : ALFormat.Stereo16, castBuffer,
@@ -435,6 +435,7 @@ namespace NVorbis.OpenTKSupport
 
             return readSamples != BufferSize;
         }
+
         public static void CastBuffer(float[] inBuffer, short[] outBuffer, int length)
         {
             for (int i = 0; i < length; i++)

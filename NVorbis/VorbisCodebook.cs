@@ -7,9 +7,7 @@
  ***************************************************************************/
 using System;
 using System.IO;
-using System.Collections.Generic;
-using System.Collections;
-using HuffmanListNode = NVorbis.HuffmanPool.Node;
+using HuffmanNode = NVorbis.HuffmanPool.Node;
 
 namespace NVorbis
 {
@@ -25,8 +23,8 @@ namespace NVorbis
         int[] Lengths;
         float[] LookupTable;
 
-        HuffmanListNode PrefixOverflowTree;
-        public HuffmanListNode[] PrefixList;
+        HuffmanNode PrefixOverflowTree;
+        public HuffmanNode[] PrefixList;
         int PrefixBitLength;
         int MaxBits;
 
@@ -285,7 +283,7 @@ namespace NVorbis
                 return -1;
 
             // try to get the value from the prefix list...
-            HuffmanListNode node = PrefixList[bits];
+            HuffmanNode node = PrefixList[bits];
             if (node != null)
             {
                 packet.SkipBits(node.Length);

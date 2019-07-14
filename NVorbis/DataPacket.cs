@@ -193,9 +193,8 @@ namespace NVorbis
         public void SkipBits(int count)
         {
             if (count == 0)
-            {
-                // no-op
-            }
+                return;
+
             if (_bitCount > count)
             {
                 // we still have bits left over...

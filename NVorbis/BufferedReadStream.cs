@@ -15,11 +15,6 @@ namespace NVorbis
     /// </summary>
     partial class BufferedReadStream : Stream
     {
-        //const int DEFAULT_INITIAL_SIZE = 32768;   // 32KB  (1/2 full page)
-        //const int DEFAULT_MAX_SIZE = 262144;      // 256KB (4 full pages)
-
-        const int DEFAULT_INITIAL_SIZE = 1024 * 80;
-
         Stream _baseStream;
         bool _leaveOpen;
 
@@ -30,21 +25,12 @@ namespace NVorbis
         int _lockCount;
 
         public BufferedReadStream(Stream baseStream, bool leaveOpen)
-            : this(baseStream, leaveOpen, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, false)
+            : this(baseStream, leaveOpen, minimalRead: false)
         {
         }
 
-        //public BufferedReadStream(Stream baseStream, bool minimalRead)
-        //    : this(baseStream, DEFAULT_INITIAL_SIZE, DEFAULT_INITIAL_SIZE, minimalRead)
-        //{
-        //}
-        //
-        //private BufferedReadStream(Stream baseStream, int initialSize, int maxSize)
-        //    : this(baseStream, initialSize, maxSize, false)
-        //{
-        //}
-
-        private BufferedReadStream(Stream baseStream, bool leaveOpen, int initialSize, int maxBufferSize, bool minimalRead)
+        private BufferedReadStream(
+            Stream baseStream, bool leaveOpen, bool minimalRead)
         {
             if (baseStream == null)
                 throw new ArgumentNullException(nameof(baseStream));
@@ -52,18 +38,9 @@ namespace NVorbis
             if (!baseStream.CanRead)
                 throw new ArgumentException(nameof(baseStream), "Stream is not readable.");
 
-            if (maxBufferSize < 1)
-                maxBufferSize = 1;
-
-            if (initialSize < 1)
-                initialSize = 1;
-
-            if (initialSize > maxBufferSize)
-                _ = maxBufferSize;
-
             _baseStream = baseStream;
             _leaveOpen = leaveOpen;
-            _buffer = new StreamReadBuffer(baseStream, /*initialSize, maxBufferSize,*/ minimalRead);
+            _buffer = new StreamReadBuffer(baseStream, minimalRead);
         }
 
         protected override void Dispose(bool disposing)
@@ -76,7 +53,6 @@ namespace NVorbis
                     _buffer.Dispose();
                     _buffer = null;
                 }
-
                 if (!_leaveOpen)
                     _baseStream.Dispose();
             }
@@ -111,16 +87,6 @@ namespace NVorbis
             set => _buffer.MinimalRead = value;
         }
 
-        //public int MaxBufferSize
-        //{
-        //    get => _buffer.MaxSize;
-        //    set
-        //    {
-        //        //CheckLock();
-        //        //_buffer.MaxSize = value;
-        //    }
-        //}
-
         public long BufferBaseOffset => _buffer.BaseOffset;
         public int BufferBytesFilled => _buffer.BytesFilled;
 
@@ -142,7 +108,6 @@ namespace NVorbis
 
         public override void Flush()
         {
-            // no-op
         }
 
         public override long Length => _baseStream.Length;
@@ -195,7 +160,7 @@ namespace NVorbis
                     throw new InvalidOperationException("Cannot seek to beyond the end of the buffer. Discard some bytes.");
             }
 
-            return (_readPosition = offset);
+            return _readPosition = offset;
         }
 
         public override void SetLength(long value)
