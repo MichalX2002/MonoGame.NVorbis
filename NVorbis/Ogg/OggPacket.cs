@@ -52,7 +52,7 @@ namespace NVorbis.Ogg
             Set(length);
         }
 
-        internal void MergeWith(NVorbis.DataPacket continuation)
+        internal void MergeWith(DataPacket continuation)
         {
             if (!(continuation is OggPacket op))
                 throw new ArgumentException("Incorrect packet type!");

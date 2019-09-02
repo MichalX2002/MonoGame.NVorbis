@@ -173,7 +173,7 @@ namespace NVorbis
         public long ContainerOverheadBits => ActiveDecoder.ContainerBits;
 
         /// <summary>
-        /// Gets or sets whether to automatically apply clipping to samples returned by <see cref="VorbisReader.ReadSamples"/>.
+        /// Gets or sets whether to automatically apply clipping to samples returned by <see cref="ReadSamples"/>.
         /// </summary>
         public bool ClipSamples { get; set; }
 
