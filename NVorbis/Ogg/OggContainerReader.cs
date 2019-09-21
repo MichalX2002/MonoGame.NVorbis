@@ -412,7 +412,7 @@ namespace NVorbis.Ogg
                     var callback = NewStream;
                     if (callback != null)
                     {
-                        var ea = new NewStreamEvent(_packetReaders[hdr.StreamSerial]);
+                        var ea = new NewStreamEventArgs(_packetReaders[hdr.StreamSerial]);
                         callback(this, ea);
 
                         if (ea.IgnoreStream)

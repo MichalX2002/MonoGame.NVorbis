@@ -9,7 +9,7 @@ using System;
 
 namespace NVorbis
 {
-    public delegate void NewStreamDelegate(IContainerReader sender, NewStreamEvent data);
+    public delegate void NewStreamDelegate(IContainerReader sender, NewStreamEventArgs data);
 
     /// <summary>
     /// Provides a interface for a Vorbis logical stream container.

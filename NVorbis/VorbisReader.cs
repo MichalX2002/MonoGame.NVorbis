@@ -63,7 +63,7 @@ namespace NVorbis
 
         public VorbisReader(IPacketProvider packetProvider) : this()
         {
-            var ea = new NewStreamEvent(packetProvider);
+            var ea = new NewStreamEventArgs(packetProvider);
             NewStream(this, ea);
             if (ea.IgnoreStream)
                 throw new InvalidDataException("No Vorbis data found.");
@@ -80,7 +80,7 @@ namespace NVorbis
             return true;
         }
 
-        void NewStream(object sender, NewStreamEvent ea)
+        void NewStream(object sender, NewStreamEventArgs ea)
         {
             var packetProvider = ea.PacketProvider;
             var decoder = new VorbisStreamDecoder(packetProvider);

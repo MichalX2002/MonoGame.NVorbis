@@ -13,7 +13,7 @@ namespace NVorbis
     /// Event data for when a new logical stream is found in a container.
     /// </summary>
     [Serializable]
-    public class NewStreamEvent
+    public class NewStreamEventArgs : EventArgs
     {
         /// <summary>
         /// Gets new the <see cref="IPacketProvider"/> instance.
@@ -26,10 +26,10 @@ namespace NVorbis
         public bool IgnoreStream { get; set; }
 
         /// <summary>
-        /// Creates a new instance of <see cref="NewStreamEvent"/> with the specified <see cref="IPacketProvider"/>.
+        /// Creates a new instance of <see cref="NewStreamEventArgs"/> with the specified <see cref="IPacketProvider"/>.
         /// </summary>
         /// <param name="packetProvider">An <see cref="IPacketProvider"/> instance.</param>
-        public NewStreamEvent(IPacketProvider packetProvider)
+        public NewStreamEventArgs(IPacketProvider packetProvider)
         {
             PacketProvider = packetProvider ?? throw new ArgumentNullException(nameof(PacketProvider));
         }
