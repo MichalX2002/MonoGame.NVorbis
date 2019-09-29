@@ -5,17 +5,31 @@
  * See COPYING for license terms (Ms-PL).                                   *
  *                                                                          *
  ***************************************************************************/
+
 using System;
 using System.IO;
 
 namespace NVorbis
 {
-    class VorbisMode
+    internal class VorbisMode
     {
-        const float M_PI = 3.1415926539f; //(float)Math.PI;
-        const float M_PI2 = M_PI / 2;
+        private const float M_PI2 = (float)(Math.PI / 2);
 
-        internal static VorbisMode Init(VorbisStreamDecoder vorbis, DataPacket packet)
+        private VorbisStreamDecoder _vorbis;
+        private float[][] _windows;
+
+        public bool BlockFlag;
+        public int WindowType;
+        public int TransformType;
+        public VorbisMapping Mapping;
+        public int BlockSize;
+
+        private VorbisMode(VorbisStreamDecoder vorbis)
+        {
+            _vorbis = vorbis;
+        }
+
+        public static VorbisMode Init(VorbisStreamDecoder vorbis, DataPacket packet)
         {
             var mode = new VorbisMode(vorbis);
             mode.BlockFlag = packet.ReadBit();
@@ -23,7 +37,8 @@ namespace NVorbis
             mode.TransformType = (int)packet.ReadUBits(16);
             var mapping = (int)packet.ReadUBits(8);
 
-            if (mode.WindowType != 0 || mode.TransformType != 0 || mapping >= vorbis.Maps.Length) throw new InvalidDataException();
+            if (mode.WindowType != 0 || mode.TransformType != 0 || mapping >= vorbis.Maps.Length)
+                throw new InvalidDataException();
 
             mode.Mapping = vorbis.Maps[mapping];
             mode.BlockSize = mode.BlockFlag ? vorbis.Block1Size : vorbis.Block0Size;
@@ -47,15 +62,6 @@ namespace NVorbis
             mode.CalcWindows();
 
             return mode;
-        }
-
-        VorbisStreamDecoder _vorbis;
-
-        float[][] _windows;
-
-        private VorbisMode(VorbisStreamDecoder vorbis)
-        {
-            _vorbis = vorbis;
         }
 
         void CalcWindows()
@@ -84,9 +90,7 @@ namespace NVorbis
                 }
 
                 for (int i = leftbegin + left; i < rightbegin; i++)
-                {
-                    array[i] = 1.0f;
-                }
+                    array[i] = 1f;
 
                 for (int i = 0; i < right; i++)
                 {
@@ -97,27 +101,19 @@ namespace NVorbis
             }
         }
 
-        internal bool BlockFlag;
-        internal int WindowType;
-        internal int TransformType;
-        internal VorbisMapping Mapping;
-        internal int BlockSize;
-
         internal float[] GetWindow(bool prev, bool next)
         {
             if (BlockFlag)
             {
                 if (next)
                 {
-                    if (prev) return _windows[3];
+                    if (prev) 
+                        return _windows[3];
                     return _windows[2];
                 }
                 else if (prev)
-                {
                     return _windows[1];
-                }
             }
-
             return _windows[0];
         }
     }
