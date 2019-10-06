@@ -106,7 +106,7 @@ namespace NVorbis.Ogg
                     else
                     {
                         // swap the new packet in to the last position (remember, we're doubly-linked)
-                        _last = ((p.Prev = _last).Next = p);
+                        _last = (p.Prev = _last).Next = p;
                     }
                 }
 
@@ -136,7 +136,7 @@ namespace NVorbis.Ogg
         // This is fast path... don't make the caller wait if we can help it...
         public DataPacket GetNextPacket()
         {
-            return (_current = PeekNextPacketInternal());
+            return _current = PeekNextPacketInternal();
         }
 
         public DataPacket PeekNextPacket()

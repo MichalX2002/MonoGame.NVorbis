@@ -235,7 +235,7 @@ namespace NVorbis
                     int idxDiv = 1;
                     for (var i = 0; i < Dimensions; i++)
                     {
-                        int moff = (idx / idxDiv) % lookupValueCount;
+                        int moff = idx / idxDiv % lookupValueCount;
                         double value = multiplicands[moff] * deltaValue + minValue + last;
                         LookupTable[idx * Dimensions + i] = (float)value;
 

@@ -29,7 +29,7 @@ namespace NVorbis
             lock (_setupCache)
             {
                 if (!_setupCache.TryGetValue(n, out var value))
-                    _setupCache[n] = (value = new Mdct(n));
+                    _setupCache[n] = value = new Mdct(n);
                 return value;
             }
         }
@@ -85,7 +85,7 @@ namespace NVorbis
             lock (_threadLocalBuffers)
             {
                 if (!_threadLocalBuffers.TryGetValue(Thread.CurrentThread.ManagedThreadId, out float[] buffer))
-                    _threadLocalBuffers[Thread.CurrentThread.ManagedThreadId] = (buffer = new float[_n2]);
+                    _threadLocalBuffers[Thread.CurrentThread.ManagedThreadId] = buffer = new float[_n2];
                 return buffer;
             }
         }
@@ -106,8 +106,8 @@ namespace NVorbis
                     int e_stop = _n2; // buffer
                     while (e != e_stop)
                     {
-                        buf2[d + 1] = (buffer[e] * _A[AA] - buffer[e + 2] * _A[AA + 1]);
-                        buf2[d] = (buffer[e] * _A[AA + 1] + buffer[e + 2] * _A[AA]);
+                        buf2[d + 1] = buffer[e] * _A[AA] - buffer[e + 2] * _A[AA + 1];
+                        buf2[d] = buffer[e] * _A[AA + 1] + buffer[e + 2] * _A[AA];
                         d -= 2;
                         AA += 2;
                         e += 4;
@@ -116,8 +116,8 @@ namespace NVorbis
                     e = _n2 - 3;
                     while (d >= 0)
                     {
-                        buf2[d + 1] = (-buffer[e + 2] * _A[AA] - -buffer[e] * _A[AA + 1]);
-                        buf2[d] = (-buffer[e + 2] * _A[AA + 1] + -buffer[e] * _A[AA]);
+                        buf2[d + 1] = -buffer[e + 2] * _A[AA] - -buffer[e] * _A[AA + 1];
+                        buf2[d] = -buffer[e + 2] * _A[AA + 1] + -buffer[e] * _A[AA];
                         d -= 2;
                         AA += 2;
                         e -= 4;

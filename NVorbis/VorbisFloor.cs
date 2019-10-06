@@ -120,7 +120,7 @@ namespace NVorbis
                 int[] map = new int[n + 1];
 
                 for (int i = 0; i < n - 1; i++)
-                    map[i] = Math.Min(_bark_map_size - 1, (int)Math.Floor(ToBARK((_rate / 2f) / n * i) * scale));
+                    map[i] = Math.Min(_bark_map_size - 1, (int)Math.Floor(ToBARK(_rate / 2f / n * i) * scale));
 
                 map[n] = -1;
                 return map;
@@ -165,7 +165,7 @@ namespace NVorbis
                     // this is pretty well stolen directly from libvorbis...  BSD license
                     Array.Clear(data.Coeff, 0, data.Coeff.Length);
 
-                    data.Amp = (float)(data.Amp / _ampDiv * _ampOfs);
+                    data.Amp = data.Amp / _ampDiv * _ampOfs;
 
                     uint bookNum = (uint)packet.ReadUBits(_bookBits);
                     if (bookNum >= _books.Length)
