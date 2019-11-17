@@ -8,7 +8,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.IO;
 
 namespace NVorbis
@@ -274,7 +273,7 @@ namespace NVorbis
         }
 
         /// <summary>
-        /// Gets the total length of the current logical stream
+        /// Gets the total length of the current logical stream.
         /// </summary>
         public TimeSpan TotalTime
         {
@@ -288,6 +287,9 @@ namespace NVorbis
             }
         }
 
+        /// <summary>
+        /// Gets the total amount of samples in the current logical stream.
+        /// </summary>
         public long TotalSamples
         {
             get
