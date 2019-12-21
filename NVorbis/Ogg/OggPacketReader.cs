@@ -12,17 +12,14 @@ using System.IO;
 namespace NVorbis.Ogg
 {
     [System.Diagnostics.DebuggerTypeProxy(typeof(DebugView))]
-    class OggPacketReader : IPacketProvider
+    internal class OggPacketReader : IPacketProvider
     {
         // IPacketProvider requires this, but we aren't using it
-#pragma warning disable 67  // disable the "unused" warning
         public event ParameterChangeDelegate ParameterChange;
-#pragma warning restore 67
 
         private OggContainerReader _container;
         private OggPacket _first, _current, _last;
-
-        object _packetLock = new object();
+        private object _packetLock = new object();
 
         internal bool HasEndOfStream { get; private set; }
 
@@ -95,7 +92,7 @@ namespace NVorbis.Ogg
                 else
                 {
                     if (!(packet is OggPacket p))
-                        throw new ArgumentException("Wrong packet datatype");
+                        throw new ArgumentException("Wrong packet datatype.");
 
                     if (_first == null)
                     {
@@ -144,7 +141,7 @@ namespace NVorbis.Ogg
             return PeekNextPacketInternal();
         }
 
-        OggPacket PeekNextPacketInternal()
+        private OggPacket PeekNextPacketInternal()
         {
             // try to get the next packet in the sequence
             OggPacket curPacket;
@@ -174,7 +171,7 @@ namespace NVorbis.Ogg
             if (curPacket != null)
             {
                 if (curPacket.IsContinued)
-                    throw new InvalidDataException("Packet is incomplete!");
+                    throw new InvalidDataException("Packet is incomplete.");
                 curPacket.Reset();
             }
 
@@ -227,7 +224,7 @@ namespace NVorbis.Ogg
 
             // if _first is null, something is borked
             if (_first == null)
-                throw new InvalidOperationException("Packet reader has no packets!");
+                throw new InvalidOperationException("Packet reader has no packets.");
 
             // starting from the beginning, count packets until we have the one we want...
             var packet = _first;
@@ -248,7 +245,7 @@ namespace NVorbis.Ogg
             return packet;
         }
 
-        OggPacket GetLastPacketInPage(OggPacket packet)
+        private OggPacket GetLastPacketInPage(OggPacket packet)
         {
             if (packet != null)
             {
@@ -258,14 +255,18 @@ namespace NVorbis.Ogg
 
                 if (packet != null && packet.IsContinued)
                 {
-                    // move to the *actual* last packet of the page... If .Prev is null, something is wrong and we can't seek anyway
+                    // move to the *actual* last packet of the page... 
+                    // If .Prev is null, something is wrong and we can't seek anyway
                     packet = packet.Prev;
                 }
             }
             return packet;
         }
 
-        OggPacket FindPacketInPage(OggPacket pagePacket, long targetGranulePos, Func<DataPacket, DataPacket, int> packetGranuleCountCallback)
+        private OggPacket FindPacketInPage(
+            OggPacket pagePacket,
+            long targetGranulePos,
+            Func<DataPacket, DataPacket, int> packetGranuleCountCallback)
         {
             OggPacket lastPacketInPage = GetLastPacketInPage(pagePacket);
             if (lastPacketInPage == null)
@@ -301,7 +302,7 @@ namespace NVorbis.Ogg
                     {
                         // probably the first data packet...
                         if (packet.GranulePosition > packet.Next.GranulePosition - packet.Next.GranuleCount)
-                            throw new InvalidOperationException("First data packet size mismatch");
+                            throw new InvalidOperationException("First data packet size mismatch.");
 
                         packet.GranuleCount = (int)packet.GranulePosition;
                     }
@@ -385,7 +386,7 @@ namespace NVorbis.Ogg
                 throw new ArgumentNullException(nameof(packet));
 
             if (!(packet is OggPacket op))
-                throw new ArgumentException("Incorrect packet type!", nameof(packet));
+                throw new ArgumentException("Incorrect packet type.", nameof(packet));
 
             while (--preRoll >= 0)
             {
@@ -403,14 +404,12 @@ namespace NVorbis.Ogg
             return GetLastPacket().PageGranulePosition;
         }
 
-        class DebugView
+        private class DebugView
         {
-            OggPacketReader _reader;
+            private OggPacketReader _reader;
 
-            public DebugView(OggPacketReader reader)
-            {
-                _reader = reader ?? throw new ArgumentNullException();
-            }
+            private OggPacket _last, _first;
+            private OggPacket[] _packetList = Array.Empty<OggPacket>();
 
             public OggContainerReader Container => _reader._container;
             public int StreamSerial => _reader.StreamSerial;
@@ -425,9 +424,6 @@ namespace NVorbis.Ogg
                     return Array.IndexOf(Packets, _reader._current);
                 }
             }
-
-            OggPacket _last, _first;
-            OggPacket[] _packetList = new OggPacket[0];
 
             public OggPacket[] Packets
             {
@@ -449,6 +445,11 @@ namespace NVorbis.Ogg
                     _packetList = packets.ToArray();
                     return _packetList;
                 }
+            }
+
+            public DebugView(OggPacketReader reader)
+            {
+                _reader = reader ?? throw new ArgumentNullException();
             }
         }
     }

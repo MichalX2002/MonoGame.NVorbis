@@ -16,16 +16,14 @@ namespace NVorbis.Ogg
     /// </summary>
     public class OggContainerReader : IContainerReader
     {
-        OggCrc _crc = new OggCrc();
-        BufferedReadStream _stream;
-        Dictionary<int, OggPacketReader> _packetReaders;
-        List<int> _disposedStreamSerials;
-        long _nextPageOffset;
-        int _pageCount;
-
-        byte[] _readBuffer; 
-
-        long _containerBits, _wasteBits;
+        private OggCrc _crc = new OggCrc();
+        private BufferedReadStream _stream;
+        private Dictionary<int, OggPacketReader> _packetReaders;
+        private List<int> _disposedStreamSerials;
+        private long _nextPageOffset;
+        private int _pageCount;
+        private byte[] _readBuffer;
+        private long _containerBits, _wasteBits;
 
         /// <summary>
         /// Gets the list of stream serials found in the container so far.
@@ -50,7 +48,7 @@ namespace NVorbis.Ogg
         /// Creates a new instance with the specified stream.  Optionally sets to close the stream when disposed.
         /// </summary>
         /// <param name="stream">The stream to read.</param>
-        /// <param name="leaveOpen"><c>false</c> to close the stream when <see cref="Dispose"/> is called, otherwise <c>true</c>.</param>
+        /// <param name="leaveOpen"><see langword="false"/> to close the stream when <see cref="Dispose"/> is called, otherwise <see langword="true"/>.</param>
         public OggContainerReader(Stream stream, bool leaveOpen)
         {
             _packetReaders = new Dictionary<int, OggPacketReader>();
@@ -185,7 +183,7 @@ namespace NVorbis.Ogg
 
 
         // private implmentation bits
-        unsafe struct PageHeader
+        private unsafe struct PageHeader
         {
             public int StreamSerial;
             public OggPageFlags Flags;
@@ -199,7 +197,7 @@ namespace NVorbis.Ogg
             public int SegCount;
         }
 
-        unsafe bool ReadPageHeader(long position, out PageHeader header)
+        private unsafe bool ReadPageHeader(long position, out PageHeader header)
         {
             header = default;
 
@@ -259,7 +257,7 @@ namespace NVorbis.Ogg
             {
                 var tmp = _readBuffer[i];
                 _crc.Update(tmp);
-                
+
                 header.PacketSizes[idx] += tmp;
 
                 if (tmp < 255)
@@ -290,7 +288,7 @@ namespace NVorbis.Ogg
             return false;
         }
 
-        unsafe bool FindNextPageHeader(out PageHeader header)
+        private unsafe bool FindNextPageHeader(out PageHeader header)
         {
             long startPos = _nextPageOffset;
             bool isResync = false;
@@ -335,7 +333,7 @@ namespace NVorbis.Ogg
             return true;
         }
 
-        unsafe bool AddPage(PageHeader hdr)
+        private unsafe bool AddPage(PageHeader hdr)
         {
             // get our packet reader (create one if we have to)
             if (!_packetReaders.TryGetValue(hdr.StreamSerial, out var packetReader))
@@ -394,18 +392,18 @@ namespace NVorbis.Ogg
             }
         }
 
-        int GatherNextPage()
+        private int GatherNextPage()
         {
             while (true)
             {
                 // get our next header
-                if(!FindNextPageHeader(out var hdr))
+                if (!FindNextPageHeader(out var hdr))
                     return -1;
-                
+
                 // if it's in a disposed stream, grab the next page instead
                 if (_disposedStreamSerials.Contains(hdr.StreamSerial))
                     continue;
-                
+
                 // otherwise, add it
                 if (AddPage(hdr))
                 {

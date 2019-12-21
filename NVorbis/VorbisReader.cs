@@ -7,16 +7,16 @@
  ***************************************************************************/
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
 
 namespace NVorbis
 {
     public class VorbisReader : IDisposable
     {
-        IContainerReader _containerReader;
-        List<VorbisStreamDecoder> _decoders;
-        List<int> _serials;
+        private IContainerReader _containerReader;
+        private List<VorbisStreamDecoder> _decoders;
+        private List<int> _serials;
 
         private VorbisReader()
         {
@@ -68,7 +68,7 @@ namespace NVorbis
                 throw new InvalidDataException("No Vorbis data found.");
         }
 
-        bool LoadContainer(IContainerReader containerReader)
+        private bool LoadContainer(IContainerReader containerReader)
         {
             containerReader.NewStream += NewStream;
             if (!containerReader.Init())
@@ -79,7 +79,7 @@ namespace NVorbis
             return true;
         }
 
-        void NewStream(object sender, NewStreamEventArgs ea)
+        private void NewStream(object sender, NewStreamEventArgs ea)
         {
             var packetProvider = ea.PacketProvider;
             var decoder = new VorbisStreamDecoder(packetProvider);
@@ -114,7 +114,7 @@ namespace NVorbis
             }
         }
 
-        VorbisStreamDecoder ActiveDecoder
+        private VorbisStreamDecoder ActiveDecoder
         {
             get
             {
@@ -221,7 +221,7 @@ namespace NVorbis
         /// <summary>
         /// Searches for the next stream in a concatenated file
         /// </summary>
-        /// <returns><c>True</c> if a new stream was found, otherwise <c>false</c>.</returns>
+        /// <returns><c>True</c> if a new stream was found, otherwise <see langword="false"/>.</returns>
         public bool FindNextStream()
         {
             if (_containerReader == null)
@@ -249,7 +249,7 @@ namespace NVorbis
             StreamIndex = index;
             var newDecoder = _decoders[StreamIndex];
 
-            return curDecoder._channels != newDecoder._channels 
+            return curDecoder._channels != newDecoder._channels
                 || curDecoder._sampleRate != newDecoder._sampleRate;
         }
 
@@ -301,7 +301,7 @@ namespace NVorbis
                     return long.MaxValue;
             }
         }
-        
+
         #endregion
     }
 }
