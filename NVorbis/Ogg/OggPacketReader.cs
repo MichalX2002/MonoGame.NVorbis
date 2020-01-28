@@ -55,7 +55,6 @@ namespace NVorbis.Ogg
                     node = tmp;
                     node.Prev = null;
                 }
-                node = null;
             }
 
             _last = null;
