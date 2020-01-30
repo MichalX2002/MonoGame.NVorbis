@@ -54,7 +54,7 @@ namespace NVorbis
             // this is used to pull data out of the buffer, so we'll update the start position too...
             int len = (_end - start + _bufLen) % _bufLen;
             if (buffer.Length > len)
-                throw new ArgumentException(nameof(buffer));
+                throw new ArgumentException("Request too large.", nameof(buffer));
 
             int cnt = Math.Min(buffer.Length, _bufLen - start);
             _buffer.AsSpan(start, cnt).CopyTo(buffer);
