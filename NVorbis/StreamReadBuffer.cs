@@ -257,7 +257,6 @@ namespace NVorbis
         void CalcBuffer(long offset, int count, out int readStart, out int readEnd)
         {
             readStart = 0;
-            readEnd = 0;
             if (offset < _baseOffset)
             {
                 // try to overlap the end...
