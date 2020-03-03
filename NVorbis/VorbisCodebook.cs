@@ -268,11 +268,15 @@ namespace NVorbis
 
         int Lookup1_values()
         {
-            int r = (int)Math.Floor(Math.Exp(Math.Log(Entries) / Dimensions));
-            
-            if (Math.Floor(Math.Pow(r + 1, Dimensions)) <= Entries)
+            int r = (int)MathF.Floor(MathF.Exp(MathF.Log(Entries) / Dimensions));
+            float powR1 = MathF.Pow(r + 1, Dimensions);
+            if ((int)MathF.Floor(powR1) <= Entries)
                 r++;
-            
+
+            if (powR1 <= Entries)
+                return -1;
+            if ((int)MathF.Floor(MathF.Pow(r, Dimensions)) > Entries)
+                return -1;
             return r;
         }
 

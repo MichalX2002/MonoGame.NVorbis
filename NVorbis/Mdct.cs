@@ -55,15 +55,15 @@ namespace NVorbis
             int k, k2;
             for (k = k2 = 0; k < _n4; ++k, k2 += 2)
             {
-                _A[k2] = (float)Math.Cos(4 * k * M_PI / n);
-                _A[k2 + 1] = (float)-Math.Sin(4 * k * M_PI / n);
-                _B[k2] = (float)Math.Cos((k2 + 1) * M_PI / n / 2) * .5f;
-                _B[k2 + 1] = (float)Math.Sin((k2 + 1) * M_PI / n / 2) * .5f;
+                _A[k2] = MathF.Cos(4 * k * M_PI / n);
+                _A[k2 + 1] = -MathF.Sin(4 * k * M_PI / n);
+                _B[k2] = MathF.Cos((k2 + 1) * M_PI / n / 2) * .5f;
+                _B[k2 + 1] = MathF.Sin((k2 + 1) * M_PI / n / 2) * .5f;
             }
             for (k = k2 = 0; k < _n8; ++k, k2 += 2)
             {
-                _C[k2] = (float)Math.Cos(2 * (k2 + 1) * M_PI / n);
-                _C[k2 + 1] = (float)-Math.Sin(2 * (k2 + 1) * M_PI / n);
+                _C[k2] = MathF.Cos(2 * (k2 + 1) * M_PI / n);
+                _C[k2 + 1] = -MathF.Sin(2 * (k2 + 1) * M_PI / n);
             }
 
             // now, calc the bit reverse table
